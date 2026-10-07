@@ -9,6 +9,7 @@ const pool = new Pool({
   database: process.env.DB_NAME || 'msu_mentorship_portal',
   user: process.env.DB_USER || 'postgres',
   password: process.env.DB_PASSWORD,
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
   max: 20,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 2000,
