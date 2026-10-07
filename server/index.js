@@ -26,7 +26,7 @@ const matchingRoutes = require('./routes/matching');
 const gamificationRoutes = require('./routes/gamification');
 const analyticsRoutes = require('./routes/analytics');
 const uploadRoutes = require('./routes/upload');
-const setupRoutes = require('./routes/setup');
+// const setupRoutes = require('./routes/setup'); // Removed for security
 
 // Import middleware
 const errorHandler = require('./middleware/errorHandler');
@@ -88,18 +88,18 @@ const limiter = rateLimit({
 });
 app.use('/api/', limiter);
 
-// Stricter rate limiting for auth endpoints (disabled for testing)
-// const authLimiter = rateLimit({
-//   windowMs: 15 * 60 * 1000, // 15 minutes
-//   max: 5, // 5 requests per 15 minutes
-//   message: {
-//     success: false,
-//     error: 'Too many authentication attempts. Please wait 15 minutes and try again.'
-//   },
-//   skipSuccessfulRequests: true
-// });
-// app.use('/api/auth/login', authLimiter);
-// app.use('/api/auth/register', authLimiter);
+// Stricter rate limiting for auth endpoints
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // 5 requests per 15 minutes
+  message: {
+    success: false,
+    error: 'Too many authentication attempts. Please wait 15 minutes and try again.'
+  },
+  skipSuccessfulRequests: true
+});
+app.use('/api/auth/login', authLimiter);
+app.use('/api/auth/register', authLimiter);
 
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
@@ -120,7 +120,7 @@ app.use('/api/matching', matchingRoutes);
 app.use('/api/gamification', gamificationRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/upload', uploadRoutes);
-app.use('/api/setup', setupRoutes);
+// app.use('/api/setup', setupRoutes); // Removed for security
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
