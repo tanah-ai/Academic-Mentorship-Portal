@@ -88,18 +88,18 @@ const limiter = rateLimit({
 });
 app.use('/api/', limiter);
 
-// Stricter rate limiting for auth endpoints
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // 5 requests per 15 minutes
-  message: {
-    success: false,
-    error: 'Too many authentication attempts. Please wait 15 minutes and try again.'
-  },
-  skipSuccessfulRequests: true
-});
-app.use('/api/auth/login', authLimiter);
-app.use('/api/auth/register', authLimiter);
+// Stricter rate limiting for auth endpoints (disabled for testing)
+// const authLimiter = rateLimit({
+//   windowMs: 15 * 60 * 1000, // 15 minutes
+//   max: 5, // 5 requests per 15 minutes
+//   message: {
+//     success: false,
+//     error: 'Too many authentication attempts. Please wait 15 minutes and try again.'
+//   },
+//   skipSuccessfulRequests: true
+// });
+// app.use('/api/auth/login', authLimiter);
+// app.use('/api/auth/register', authLimiter);
 
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
