@@ -5,7 +5,7 @@ const path = require('path');
 const pool = require('../config/database');
 
 // Temporary endpoint to run database schema
-router.post('/init-db', async (req, res) => {
+router.get('/init-db', async (req, res) => {
   try {
     const schemaPath = path.join(__dirname, '../database/schema.sql');
     const modulesPath = path.join(__dirname, '../database/bulk_insert_modules.sql');
