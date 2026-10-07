@@ -26,6 +26,7 @@ const matchingRoutes = require('./routes/matching');
 const gamificationRoutes = require('./routes/gamification');
 const analyticsRoutes = require('./routes/analytics');
 const uploadRoutes = require('./routes/upload');
+const setupRoutes = require('./routes/setup');
 
 // Import middleware
 const errorHandler = require('./middleware/errorHandler');
@@ -119,6 +120,7 @@ app.use('/api/matching', matchingRoutes);
 app.use('/api/gamification', gamificationRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/setup', setupRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
