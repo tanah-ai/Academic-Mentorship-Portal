@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
+import { notifyError } from '../utils/notifications';
 
 const AuthContext = createContext(null);
 
@@ -30,6 +31,7 @@ export const AuthProvider = ({ children }) => {
       setUser(response.data.user);
     } catch (error) {
       console.error('Failed to fetch user:', error);
+      notifyError(error, 'Could not restore your signed-in session');
       localStorage.removeItem('token');
       setToken(null);
     } finally {
@@ -42,6 +44,7 @@ export const AuthProvider = ({ children }) => {
     const { token: newToken, user: newUser } = response.data;
     
     localStorage.setItem('token', newToken);
+    axios.defaults.headers.common.Authorization = `Bearer ${newToken}`;
     setToken(newToken);
     setUser(newUser);
     
@@ -54,6 +57,7 @@ export const AuthProvider = ({ children }) => {
       const { token: newToken, user: newUser } = response.data;
       
       localStorage.setItem('token', newToken);
+      axios.defaults.headers.common.Authorization = `Bearer ${newToken}`;
       setToken(newToken);
       setUser(newUser);
       
