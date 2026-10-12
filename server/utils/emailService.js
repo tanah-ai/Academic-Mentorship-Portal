@@ -159,8 +159,56 @@ const sendSessionStartedEmailToMentee = async (menteeEmail, menteeName, mentorNa
   }
 };
 
+// Send password reset email
+const sendPasswordResetEmail = async (email, firstName, resetToken) => {
+  try {
+    const transporter = createTransporter();
+    const resetUrl = `${process.env.CLIENT_URL || 'http://localhost:5173'}/reset-password?token=${resetToken}`;
+    
+    const mailOptions = {
+      from: `"MSU Mentorship Portal" <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject: 'Password Reset Request - MSU Mentorship Portal',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+            <h1 style="color: white; margin: 0; font-size: 28px;">Password Reset Request</h1>
+          </div>
+          <div style="background: #f9fafb; padding: 30px; border-radius: 0 0 10px 10px; border: 1px solid #e5e7eb;">
+            <p style="font-size: 16px; color: #374151; line-height: 1.6;">
+              Dear <strong>${firstName}</strong>,
+            </p>
+            <p style="font-size: 16px; color: #374151; line-height: 1.6;">
+              We received a request to reset your password for your MSU Academic Mentorship Portal account.
+            </p>
+            <p style="font-size: 16px; color: #374151; line-height: 1.6;">
+              Click the button below to reset your password. This link will expire in 1 hour.
+            </p>
+            <div style="text-align: center; margin-top: 30px;">
+              <a href="${resetUrl}" style="background: #ef4444; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">Reset Password</a>
+            </div>
+            <p style="font-size: 14px; color: #6b7280; margin-top: 30px; text-align: center;">
+              If you didn't request this password reset, please ignore this email. Your password will remain unchanged.
+            </p>
+            <p style="font-size: 14px; color: #6b7280; margin-top: 20px; text-align: center;">
+              For security, this link will expire in 1 hour.
+            </p>
+          </div>
+        </div>
+      `
+    };
+
+    await transporter.sendMail(mailOptions);
+    return { success: true };
+  } catch (error) {
+    console.error('Email sending error:', error);
+    return { success: false, error: error.message };
+  }
+};
+
 module.exports = {
   sendRegistrationEmail,
   sendSessionBookingEmailToMentor,
-  sendSessionStartedEmailToMentee
+  sendSessionStartedEmailToMentee,
+  sendPasswordResetEmail
 };

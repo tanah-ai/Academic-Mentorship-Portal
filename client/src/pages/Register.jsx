@@ -1,9 +1,10 @@
-import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { BookOpen, Mail, Lock, User, GraduationCap, MapPin, Phone } from 'lucide-react';
+import { BookOpen, Mail, Lock, User, GraduationCap, MapPin, Phone, Eye, EyeOff } from 'lucide-react';
 import toast from 'react-hot-toast';
 import msuLogo from '/msu-logo.png?url';
+import { notifyError } from '../utils/notifications';
 
 const Register = () => {
   const [formData, setFormData] = useState({
@@ -20,8 +21,26 @@ const Register = () => {
     year_of_study: '1'
   });
   const [loading, setLoading] = useState(false);
+  const [isRegistered, setIsRegistered] = useState(false);
+  const [countdown, setCountdown] = useState(10);
+  const [showPassword, setShowPassword] = useState(false);
   const { register } = useAuth();
-  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!isRegistered) return;
+
+    const timer = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [isRegistered]);
 
   const handleChange = (e) => {
     setFormData({
@@ -35,41 +54,13 @@ const Register = () => {
     setLoading(true);
 
     try {
-      console.log('Submitting registration:', formData);
       await register(formData);
-      toast.success('Registration successful!');
-      navigate('/dashboard');
+      setIsRegistered(true);
+      setCountdown(10);
+      toast.success('Registration successful! Please wait 10 seconds before continuing.');
     } catch (error) {
       console.error('Registration error:', error);
-      console.error('Error response:', error.response?.data);
-      
-      // Handle validation errors array
-      if (error.response?.data?.errors && Array.isArray(error.response?.data?.errors)) {
-        const firstError = error.response.data.errors[0];
-        toast.error(firstError.msg || 'Registration failed. Please check your input.');
-        return;
-      }
-      
-      const errorMessage = error.response?.data?.error || error.message || 'Registration failed';
-      
-      // Show specific error messages based on the error
-      if (errorMessage.includes('Invalid MSU student ID format')) {
-        toast.error('Invalid Student ID format. Use format: R + 2-digit year + 4-digit number + letter (e.g., R234567A)');
-      } else if (errorMessage.includes('students.msu.ac.zw')) {
-        toast.error('Registration is only available for MSU students with @students.msu.ac.zw email addresses');
-      } else if (errorMessage.includes('Password must be')) {
-        toast.error(errorMessage);
-      } else if (errorMessage.includes('User already exists')) {
-        toast.error('An account with this Student ID or email already exists. Please login instead.');
-      } else if (errorMessage.includes('Mentors must be Level 2')) {
-        toast.error('Mentors must be Level 2 or above. Please select a different user type or level.');
-      } else if (errorMessage.includes('Too many requests')) {
-        toast.error('Too many registration attempts. Please wait a few minutes and try again.');
-      } else if (error.response?.status === 429) {
-        toast.error('Too many requests. Please wait a few minutes before trying again.');
-      } else {
-        toast.error('Registration failed. Please check your information and try again.');
-      }
+      notifyError(error, 'Registration failed');
     } finally {
       setLoading(false);
     }
@@ -86,6 +77,13 @@ const Register = () => {
             <h1 className="text-3xl font-bold text-gray-900">Create Account</h1>
             <p className="text-gray-600 mt-2">Join MSU Academic Mentorship Portal</p>
           </div>
+
+          {isRegistered && (
+            <div className="mb-6 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-center text-sm text-green-800 shadow-sm">
+              <p className="font-semibold">Successfully registered!</p>
+              <p className="mt-1">Please wait {countdown} seconds before continuing. You will remain on this page.</p>
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -152,15 +150,22 @@ const Register = () => {
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
                   <input
-                    type="password"
+                    type={showPassword ? 'text' : 'password'}
                     name="password"
                     value={formData.password}
                     onChange={handleChange}
-                    className="input-field pl-10"
+                    className="input-field pl-10 pr-10"
                     placeholder="••••••••"
                     required
                     minLength="8"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  </button>
                 </div>
                 <p className="text-xs text-gray-500 mt-1">Must be 8+ chars with uppercase, lowercase, number, and special character</p>
               </div>

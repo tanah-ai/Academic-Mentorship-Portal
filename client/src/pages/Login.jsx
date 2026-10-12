@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { BookOpen, Mail, Lock, User, Shield } from 'lucide-react';
+import { BookOpen, Mail, Lock, User, Shield, Eye, EyeOff } from 'lucide-react';
 import toast from 'react-hot-toast';
 import msuLogo from '/msu-logo.png?url';
+import { notifyError } from '../utils/notifications';
 
 const Login = () => {
   const [formData, setFormData] = useState({
@@ -12,6 +13,7 @@ const Login = () => {
     role: 'user'
   });
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
 
@@ -50,26 +52,7 @@ const Login = () => {
         navigate('/dashboard');
       }
     } catch (error) {
-      const errorMessage = error.response?.data?.error || error.message || 'Login failed';
-      
-      // Show specific error messages based on the error
-      if (errorMessage.includes('Invalid credentials')) {
-        toast.error('Invalid email or password. Please check your credentials and try again.');
-      } else if (errorMessage.includes('locked')) {
-        toast.error(errorMessage);
-      } else if (errorMessage.includes('attempts remaining')) {
-        toast.error(errorMessage);
-      } else if (errorMessage.includes('Too many authentication attempts')) {
-        toast.error(errorMessage);
-      } else if (errorMessage.includes('Access denied')) {
-        toast.error(errorMessage);
-      } else if (error.response?.status === 429) {
-        toast.error('Too many requests. Please wait a few minutes before trying again.');
-      } else if (error.response?.status === 423) {
-        toast.error(errorMessage);
-      } else {
-        toast.error('Login failed. Please try again.');
-      }
+      notifyError(error, 'Login failed');
     } finally {
       setLoading(false);
     }
@@ -143,14 +126,21 @@ const Login = () => {
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
                 <input
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   name="password"
                   value={formData.password}
                   onChange={handleChange}
-                  className="input-field pl-10"
+                  className="input-field pl-10 pr-10"
                   placeholder="••••••••"
                   required
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                </button>
               </div>
             </div>
 
@@ -162,6 +152,12 @@ const Login = () => {
               {loading ? 'Signing in...' : 'Sign In'}
             </button>
           </form>
+
+          <div className="mt-4 text-center">
+            <Link to="/forgot-password" className="text-sm text-primary-600 hover:text-primary-700 font-medium">
+              Forgot your password?
+            </Link>
+          </div>
 
           <div className="mt-6 text-center">
             <p className="text-gray-600">

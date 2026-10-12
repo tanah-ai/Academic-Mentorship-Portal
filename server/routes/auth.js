@@ -2,9 +2,10 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const { body, validationResult } = require('express-validator');
 const pool = require('../config/database');
-const { sendRegistrationEmail } = require('../utils/emailService');
+const { sendRegistrationEmail, sendPasswordResetEmail } = require('../utils/emailService');
 
 // @route   POST /api/auth/register
 // @desc    Register a new user
@@ -403,6 +404,107 @@ router.post('/change-password', [
     if (error.name === 'TokenExpiredError') {
       return res.status(401).json({ success: false, error: 'Token expired' });
     }
+    res.status(500).json({ success: false, error: 'Server error' });
+  }
+});
+
+// @route   POST /api/auth/forgot-password
+// @desc    Request password reset
+// @access  Public
+router.post('/forgot-password', [
+  body('email')
+    .isEmail().withMessage('Please include a valid email')
+    .normalizeEmail()
+    .toLowerCase()
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ success: false, errors: errors.array() });
+  }
+
+  const { email } = req.body;
+
+  try {
+    // Check if user exists
+    const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+    const user = result.rows[0];
+
+    if (!user) {
+      // Don't reveal if email exists, but return success to prevent email enumeration
+      return res.json({ success: true, message: 'If an account exists with this email, a password reset link has been sent' });
+    }
+
+    // Generate reset token
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const resetTokenExpiry = new Date(Date.now() + 3600000); // 1 hour from now
+
+    // Store reset token in database
+    await pool.query(
+      'UPDATE users SET reset_token = $1, reset_token_expiry = $2 WHERE id = $3',
+      [resetToken, resetTokenExpiry, user.id]
+    );
+
+    // Send password reset email
+    await sendPasswordResetEmail(user.email, user.first_name, resetToken);
+
+    res.json({ success: true, message: 'If an account exists with this email, a password reset link has been sent' });
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({ success: false, error: 'Server error' });
+  }
+});
+
+// @route   POST /api/auth/reset-password
+// @desc    Reset password with token
+// @access  Public
+router.post('/reset-password', [
+  body('token')
+    .notEmpty().withMessage('Reset token is required')
+    .trim(),
+  body('password')
+    .isLength({ min: 8, max: 128 })
+    .withMessage('Password must be between 8 and 128 characters')
+    .matches(/[A-Z]/)
+    .withMessage('Password must contain at least one uppercase letter')
+    .matches(/[a-z]/)
+    .withMessage('Password must contain at least one lowercase letter')
+    .matches(/[0-9]/)
+    .withMessage('Password must contain at least one number')
+    .matches(/[!@#$%^&*(),.?":{}|<>]/)
+    .withMessage('Password must contain at least one special character')
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ success: false, errors: errors.array() });
+  }
+
+  const { token, password } = req.body;
+
+  try {
+    // Find user with valid reset token
+    const result = await pool.query(
+      'SELECT * FROM users WHERE reset_token = $1 AND reset_token_expiry > CURRENT_TIMESTAMP',
+      [token]
+    );
+    const user = result.rows[0];
+
+    if (!user) {
+      return res.status(400).json({ success: false, error: 'Invalid or expired reset token' });
+    }
+
+    // Hash new password
+    const saltRounds = 12;
+    const newPasswordHash = await bcrypt.hash(password, saltRounds);
+
+    // Update password and clear reset token
+    await pool.query(
+      'UPDATE users SET password_hash = $1, reset_token = NULL, reset_token_expiry = NULL, password_changed_at = CURRENT_TIMESTAMP WHERE id = $2',
+      [newPasswordHash, user.id]
+    );
+
+    res.json({ success: true, message: 'Password reset successfully' });
+  } catch (error) {
+    console.error('Reset password error:', error);
     res.status(500).json({ success: false, error: 'Server error' });
   }
 });
