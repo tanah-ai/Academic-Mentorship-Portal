@@ -26,7 +26,7 @@ const matchingRoutes = require('./routes/matching');
 const gamificationRoutes = require('./routes/gamification');
 const analyticsRoutes = require('./routes/analytics');
 const uploadRoutes = require('./routes/upload');
-const migrationRoutes = require('./routes/migrations'); // Temporary for database migrations
+// const migrationRoutes = require('./routes/migrations'); // Removed after migration
 // const setupRoutes = require('./routes/setup'); // Removed for security
 
 // Import middleware
@@ -121,7 +121,7 @@ app.use('/api/matching', matchingRoutes);
 app.use('/api/gamification', gamificationRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/upload', uploadRoutes);
-app.use('/api/migrations', migrationRoutes); // Temporary for database migrations
+// app.use('/api/migrations', migrationRoutes); // Removed after migration
 // app.use('/api/setup', setupRoutes); // Removed for security
 
 // Health check endpoint
