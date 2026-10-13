@@ -5,6 +5,7 @@ import { useDataLite } from '../contexts/DataLiteContext';
 import axios from 'axios';
 import { Search, User, Star, Calendar, Clock, Award } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { notifyError } from '../utils/notifications';
 
 const FindMentor = () => {
   const { user } = useAuth();
@@ -31,6 +32,7 @@ const FindMentor = () => {
       setModules(response.data.modules);
     } catch (error) {
       console.error('Failed to fetch modules:', error);
+      notifyError(error, 'Could not load the module list');
     }
   };
 
@@ -53,7 +55,7 @@ const FindMentor = () => {
       );
       setMentors(response.data.mentors);
     } catch (error) {
-      toast.error(error.response?.data?.error || 'Failed to find mentors');
+      notifyError(error, 'Could not find mentors for this module');
     } finally {
       setLoading(false);
     }
@@ -81,11 +83,11 @@ const FindMentor = () => {
       // Create session with the matched mentor
       await createSession(response.data.mentor.id);
     } catch (error) {
-      toast.error(
-        error.response?.status === 404
-          ? 'No verified mentor has declared this module as an area of expertise yet.'
-          : error.response?.data?.error || 'Auto-match failed'
-      );
+      if (error.response?.status === 404) {
+        toast.error('No verified mentor has declared this module as an area of expertise yet.');
+      } else {
+        notifyError(error, 'Could not automatically match you with a mentor');
+      }
     } finally {
       setAutoMatching(false);
     }
@@ -118,7 +120,7 @@ const FindMentor = () => {
       toast.success('Session created successfully!');
       navigate(`/session/${response.data.session.id}`);
     } catch (error) {
-      toast.error('Failed to create session');
+      notifyError(error, 'Could not create the mentorship session');
     }
   };
 

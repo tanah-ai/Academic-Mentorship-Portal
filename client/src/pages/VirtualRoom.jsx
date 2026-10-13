@@ -7,10 +7,11 @@ import Editor from '@monaco-editor/react';
 import { fabric } from 'fabric';
 import { PenTool, Code, MessageSquare, Users, Phone, PhoneOff, Video, VideoOff, Mic, MicOff, Send, Trash2, Download, Upload, Monitor, MonitorOff, Undo, Redo, Eraser, Minus, Type, Paperclip } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { notifyError } from '../utils/notifications';
 
 const VirtualRoom = () => {
   const { id } = useParams();
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const { dataLiteMode } = useDataLite();
   const [session, setSession] = useState(null);
   const [socket, setSocket] = useState(null);
@@ -77,17 +78,26 @@ const VirtualRoom = () => {
       };
       const response = await fetch(`/api/sessions/${id}`, headers);
       const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || `Request failed (HTTP ${response.status})`);
+      }
       setSession(data.session);
     } catch (error) {
       console.error('Failed to fetch session:', error);
-      toast.error('Failed to load session');
+      notifyError(error, 'Could not load the session');
     } finally {
       setLoading(false);
     }
   };
 
   const initSocket = () => {
-    const newSocket = io('http://localhost:5000', {
+    // Use the current origin's hostname for WebSocket connection
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const host = window.location.hostname;
+    const port = window.location.port || '5000';
+    const socketUrl = `${protocol}//${host}:${port}`;
+
+    const newSocket = io(socketUrl, {
       transports: ['websocket']
     });
 
@@ -97,6 +107,10 @@ const VirtualRoom = () => {
     newSocket.on('connect', () => {
       console.log('Connected to server');
       newSocket.emit('join-session', id);
+    });
+
+    newSocket.on('connect_error', (error) => {
+      notifyError(error, 'Could not connect to the live session');
     });
 
     newSocket.on('whiteboard-update', (data) => {
@@ -180,6 +194,7 @@ const VirtualRoom = () => {
         console.log('Sent answer');
       } catch (error) {
         console.error('Error handling offer:', error);
+        notifyError(error, 'Could not establish the video connection');
       }
     });
 
@@ -199,6 +214,7 @@ const VirtualRoom = () => {
         }
       } catch (error) {
         console.error('Error handling answer:', error);
+        notifyError(error, 'Could not complete the video connection');
       }
     });
 
@@ -212,6 +228,7 @@ const VirtualRoom = () => {
         }
       } catch (error) {
         console.error('Error adding ICE candidate:', error);
+        notifyError(error, 'A network connection update failed');
       }
     });
 
@@ -228,6 +245,7 @@ const VirtualRoom = () => {
         }
       } catch (error) {
         console.error('Error handling request-offer:', error);
+        notifyError(error, 'Could not reconnect the video call');
       }
     });
   };
@@ -236,6 +254,12 @@ const VirtualRoom = () => {
   const startVideo = async () => {
     try {
       console.log('Starting video for:', user?.user_type);
+      
+      // Check if mediaDevices is available
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('Camera and microphone access is not available. This may be due to browser security restrictions. Please ensure you are using HTTPS or localhost.');
+      }
+      
       const stream = await navigator.mediaDevices.getUserMedia({
         video: true,
         audio: true
@@ -298,7 +322,7 @@ const VirtualRoom = () => {
       
     } catch (error) {
       console.error('Error accessing media devices:', error);
-      toast.error('Failed to access camera/microphone');
+      notifyError(error, 'Could not access the camera or microphone');
     }
   };
 
@@ -385,7 +409,7 @@ const VirtualRoom = () => {
       }
     } catch (error) {
       console.error('Error toggling screen share:', error);
-      toast.error('Failed to share screen');
+      notifyError(error, 'Could not share your screen');
     }
   };
 
@@ -460,11 +484,11 @@ const VirtualRoom = () => {
         
         toast.success('File shared successfully');
       } else {
-        toast.error(data.error || 'Failed to upload file');
+        notifyError({ response: { data } }, 'File upload failed');
       }
     } catch (error) {
       console.error('File upload error:', error);
-      toast.error('Failed to upload file');
+      notifyError(error, 'File upload failed');
     }
   };
 
@@ -788,27 +812,37 @@ const VirtualRoom = () => {
 
   const endSession = async () => {
     try {
-      await fetch(`/api/sessions/${id}/status`, {
+      const sessionResponse = await fetch(`/api/sessions/${id}/status`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
           'X-Data-Lite': dataLiteMode.toString()
         },
         body: JSON.stringify({ status: 'completed' })
       });
+      const sessionResult = await sessionResponse.json();
+      if (!sessionResponse.ok) {
+        throw new Error(sessionResult.error || `Request failed (HTTP ${sessionResponse.status})`);
+      }
       
       // Check for badges
-      await fetch('/api/gamification/check-badges', {
+      const badgeResponse = await fetch('/api/gamification/check-badges', {
         method: 'POST',
         headers: {
+          'Authorization': `Bearer ${token}`,
           'X-Data-Lite': dataLiteMode.toString()
         }
       });
+      const badgeResult = await badgeResponse.json();
+      if (!badgeResponse.ok) {
+        throw new Error(badgeResult.error || `Request failed (HTTP ${badgeResponse.status})`);
+      }
 
       toast.success('Session completed!');
       window.location.href = '/sessions';
     } catch (error) {
-      toast.error('Failed to end session');
+      notifyError(error, 'Could not complete the session');
     }
   };
 
@@ -856,15 +890,18 @@ const VirtualRoom = () => {
                   }
                 });
                 const data = await response.json();
+                if (!response.ok) {
+                  throw new Error(data.error || `Request failed (HTTP ${response.status})`);
+                }
                 if (data.success) {
                   toast.success('Joined session successfully!');
                   window.location.reload();
                 } else {
-                  toast.error(data.error || 'Failed to join session');
+                  notifyError({ response: { data } }, 'Could not join the session');
                 }
               } catch (error) {
                 console.error('Join error:', error);
-                toast.error('Failed to join session');
+                notifyError(error, 'Could not join the session');
               }
             }}
             className="btn-primary"

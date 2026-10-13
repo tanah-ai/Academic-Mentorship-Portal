@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useDataLite } from '../contexts/DataLiteContext';
 import axios from 'axios';
 import { Trophy, Medal, Award, TrendingUp, Crown } from 'lucide-react';
+import { notifyError } from '../utils/notifications';
 
 const Leaderboard = () => {
   const { dataLiteMode } = useDataLite();
@@ -28,6 +29,7 @@ const Leaderboard = () => {
       setLeaderboard(response.data.leaderboard);
     } catch (error) {
       console.error('Failed to fetch leaderboard:', error);
+      notifyError(error, 'Could not load the mentor leaderboard');
     } finally {
       setLoading(false);
     }

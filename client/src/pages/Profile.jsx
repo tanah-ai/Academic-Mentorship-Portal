@@ -4,6 +4,7 @@ import { useDataLite } from '../contexts/DataLiteContext';
 import axios from 'axios';
 import { User, Mail, Phone, MapPin, GraduationCap, Award, Upload, Shield, CheckCircle, XCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { notifyError } from '../utils/notifications';
 
 const Profile = () => {
   const { user, setUser } = useAuth();
@@ -48,7 +49,7 @@ const Profile = () => {
       setAvailableModules(response.data.modules);
     } catch (error) {
       console.error('Failed to load modules:', error);
-      toast.error('Failed to load module catalogue');
+      notifyError(error, 'Could not load the module catalogue');
     }
   };
 
@@ -74,7 +75,7 @@ const Profile = () => {
       });
     } catch (error) {
       console.error('Failed to fetch profile:', error);
-      toast.error('Failed to load profile');
+      notifyError(error, 'Could not load your profile');
     }
   };
 
@@ -84,6 +85,7 @@ const Profile = () => {
       setVerificationStatus(response.data.verification);
     } catch (error) {
       console.error('Failed to fetch verification status:', error);
+      notifyError(error, 'Could not load your verification status');
     }
   };
 
@@ -109,8 +111,7 @@ const Profile = () => {
     } catch (error) {
       console.error('Profile update error:', error);
       console.error('Error response:', error.response?.data);
-      const errorMessage = error.response?.data?.error || error.response?.data?.errors?.[0]?.msg || 'Failed to update profile';
-      toast.error(errorMessage);
+      notifyError(error, 'Could not update your profile');
     }
   };
 
@@ -132,7 +133,7 @@ const Profile = () => {
       toast.success('Transcript uploaded successfully');
       fetchVerificationStatus();
     } catch (error) {
-      toast.error('Failed to upload transcript');
+      notifyError(error, 'Transcript upload failed');
     } finally {
       setUploadingTranscript(false);
     }
@@ -155,7 +156,7 @@ const Profile = () => {
       setShowModuleForm(false);
       fetchProfile();
     } catch (error) {
-      toast.error(error.response?.data?.error || 'Failed to add module');
+      notifyError(error, 'Could not add the module');
     }
   };
 

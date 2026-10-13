@@ -6,6 +6,7 @@ import { Users, Calendar, BookOpen, TrendingUp, FileText, CheckCircle, XCircle, 
 import toast from 'react-hot-toast';
 import html2canvas from 'html2canvas';
 import msuLogo from '/msu-logo.png?url';
+import { notifyError } from '../utils/notifications';
 
 const AdminDashboard = () => {
   const { user } = useAuth();
@@ -80,7 +81,7 @@ const AdminDashboard = () => {
       setUsersTotal(response.data.total);
     } catch (error) {
       console.error('Failed to fetch users:', error);
-      toast.error('Failed to load registered users');
+      notifyError(error, 'Could not load registered users');
     } finally {
       setUsersLoading(false);
     }
@@ -93,7 +94,7 @@ const AdminDashboard = () => {
       setModules(response.data.modules);
     } catch (error) {
       console.error('Failed to fetch modules:', error);
-      toast.error('Failed to load modules');
+      notifyError(error, 'Could not load modules');
     } finally {
       setModulesLoading(false);
     }
@@ -105,7 +106,7 @@ const AdminDashboard = () => {
       setMentorsWithBadges(response.data.mentors);
     } catch (error) {
       console.error('Failed to fetch mentors with badges:', error);
-      toast.error('Failed to load mentors');
+      notifyError(error, 'Could not load mentors and their badges');
     }
   };
 
@@ -115,7 +116,7 @@ const AdminDashboard = () => {
       setBadges(response.data.badges);
     } catch (error) {
       console.error('Failed to fetch badges:', error);
-      toast.error('Failed to load badges');
+      notifyError(error, 'Could not load available badges');
     }
   };
 
@@ -137,7 +138,7 @@ const AdminDashboard = () => {
       fetchModules();
     } catch (error) {
       console.error('Failed to add module:', error);
-      toast.error(error.response?.data?.error || 'Failed to add module');
+      notifyError(error, 'Could not add the module');
     }
   };
 
@@ -150,7 +151,7 @@ const AdminDashboard = () => {
       fetchModules();
     } catch (error) {
       console.error('Failed to delete module:', error);
-      toast.error('Failed to delete module');
+      notifyError(error, 'Could not delete the module');
     }
   };
 
@@ -163,7 +164,7 @@ const AdminDashboard = () => {
       fetchUsers();
     } catch (error) {
       console.error('Failed to delete user:', error);
-      toast.error(error.response?.data?.error || 'Failed to delete user');
+      notifyError(error, 'Could not delete the user');
     }
   };
 
@@ -182,7 +183,7 @@ const AdminDashboard = () => {
       fetchMentorsWithBadges();
     } catch (error) {
       console.error('Failed to award badge:', error);
-      toast.error(error.response?.data?.error || 'Failed to award badge');
+      notifyError(error, 'Could not award the badge');
     }
   };
 
@@ -197,7 +198,7 @@ const AdminDashboard = () => {
       fetchMentorsWithBadges();
     } catch (error) {
       console.error('Failed to revoke badge:', error);
-      toast.error(error.response?.data?.error || 'Failed to revoke badge');
+      notifyError(error, 'Could not revoke the badge');
     }
   };
 
@@ -209,7 +210,7 @@ const AdminDashboard = () => {
       setShowCertificateModal(true);
     } catch (error) {
       console.error('Failed to generate certificate:', error);
-      toast.error(error.response?.data?.error || 'Failed to generate certificate');
+      notifyError(error, 'Could not generate the certificate');
     }
   };
 
@@ -231,7 +232,7 @@ const AdminDashboard = () => {
       toast.success('Certificate downloaded successfully');
     } catch (error) {
       console.error('Failed to download certificate:', error);
-      toast.error('Failed to download certificate');
+      notifyError(error, 'Could not download the certificate');
     }
   };
 
@@ -252,7 +253,7 @@ const AdminDashboard = () => {
       setPendingVerifications(verificationsRes.data.verifications);
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error);
-      toast.error('Failed to load dashboard data');
+      notifyError(error, 'Could not load administrator dashboard data');
     } finally {
       setLoading(false);
     }
@@ -275,7 +276,7 @@ const AdminDashboard = () => {
     } catch (error) {
       console.error('Verification error:', error);
       console.error('Error response:', error.response?.data);
-      toast.error(error.response?.data?.error || 'Failed to process verification');
+      notifyError(error, 'Could not process the transcript verification');
     }
   };
 
@@ -291,7 +292,7 @@ const AdminDashboard = () => {
       }
     } catch (error) {
       console.error('Generate nudges error:', error);
-      toast.error('Failed to generate nudges');
+      notifyError(error, 'Could not generate recommendations');
     }
   };
 

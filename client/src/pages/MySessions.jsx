@@ -4,6 +4,7 @@ import { useDataLite } from '../contexts/DataLiteContext';
 import axios from 'axios';
 import { Calendar, Clock, User, MessageSquare, Star, Play } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { notifyError } from '../utils/notifications';
 
 const MySessions = () => {
   const { user } = useAuth();
@@ -28,7 +29,7 @@ const MySessions = () => {
       setSessions(response.data.sessions);
     } catch (error) {
       console.error('Failed to fetch sessions:', error);
-      toast.error('Failed to load sessions');
+      notifyError(error, 'Could not load sessions');
     } finally {
       setLoading(false);
     }
@@ -40,7 +41,7 @@ const MySessions = () => {
       toast.success(`Session ${status}`);
       fetchSessions();
     } catch (error) {
-      toast.error('Failed to update session');
+      notifyError(error, 'Could not update the session');
     }
   };
 
@@ -50,7 +51,7 @@ const MySessions = () => {
       toast.success('Joined session');
       window.location.href = `/session/${sessionId}`;
     } catch (error) {
-      toast.error('Failed to join session');
+      notifyError(error, 'Could not join the session');
     }
   };
 

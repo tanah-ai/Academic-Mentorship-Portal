@@ -7,6 +7,7 @@ import { BookOpen, Users, Calendar, Trophy, AlertCircle, TrendingUp, Clock, Uplo
 import toast from 'react-hot-toast';
 import html2canvas from 'html2canvas';
 import msuLogo from '/msu-logo.png?url';
+import { notifyError } from '../utils/notifications';
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -57,6 +58,7 @@ const Dashboard = () => {
       }
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error);
+      notifyError(error, 'Could not load dashboard data');
     } finally {
       setLoading(false);
     }
@@ -78,7 +80,7 @@ const Dashboard = () => {
       setVerificationStatus(response.data.verification);
       toast.success('Transcript uploaded successfully');
     } catch (error) {
-      toast.error(error.response?.data?.error || 'Failed to upload transcript');
+      notifyError(error, 'Transcript upload failed');
     } finally {
       setUploadingTranscript(false);
       event.target.value = '';
@@ -91,7 +93,7 @@ const Dashboard = () => {
       setNudges(nudges.filter(n => n.id !== nudgeId));
       toast.success('Nudge dismissed');
     } catch (error) {
-      toast.error('Failed to dismiss nudge');
+      notifyError(error, 'Could not dismiss the recommendation');
     }
   };
 
@@ -102,7 +104,7 @@ const Dashboard = () => {
       setShowCertificateModal(true);
     } catch (error) {
       console.error('Failed to generate certificate:', error);
-      toast.error(error.response?.data?.error || 'Failed to generate certificate');
+      notifyError(error, 'Could not generate the certificate');
     }
   };
 
@@ -124,7 +126,7 @@ const Dashboard = () => {
       toast.success('Certificate downloaded successfully');
     } catch (error) {
       console.error('Failed to download certificate:', error);
-      toast.error('Failed to download certificate');
+      notifyError(error, 'Could not download the certificate');
     }
   };
 
