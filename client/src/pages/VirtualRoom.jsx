@@ -141,7 +141,18 @@ const VirtualRoom = () => {
     });
 
     newSocket.on('file-shared', (data) => {
-      setSharedFiles(prev => [...prev, data]);
+      console.log('Received file shared:', data);
+      // Normalize file data to ensure all required fields exist
+      const file = data.file || data;
+      const normalizedFile = {
+        id: file.id || Date.now(),
+        user: file.user || 'Unknown',
+        fileName: file.fileName || file.name || 'Unknown file',
+        fileUrl: file.fileUrl || file.url,
+        fileSize: file.fileSize || 0,
+        timestamp: file.timestamp || new Date().toISOString()
+      };
+      setSharedFiles(prev => [...prev, normalizedFile]);
     });
 
     newSocket.on('reaction', (data) => {
@@ -1286,7 +1297,9 @@ const VirtualRoom = () => {
                     <div className="flex items-center justify-between mb-1">
                       <span className="font-medium text-sm text-blue-700">{file.user}</span>
                       <span className="text-xs text-gray-500">
-                        {new Date(file.timestamp).toLocaleTimeString()}
+                        {file.timestamp && !isNaN(new Date(file.timestamp).getTime()) 
+                          ? new Date(file.timestamp).toLocaleTimeString() 
+                          : 'Just now'}
                       </span>
                     </div>
                     <div className="flex items-center space-x-2">
@@ -1300,7 +1313,7 @@ const VirtualRoom = () => {
                         {file.fileName}
                       </a>
                       <span className="text-xs text-gray-500">
-                        ({(file.fileSize / 1024).toFixed(1)} KB)
+                        ({file.fileSize && !isNaN(file.fileSize) ? (file.fileSize / 1024).toFixed(1) : 'Unknown'} KB)
                       </span>
                     </div>
                   </div>
@@ -1310,7 +1323,9 @@ const VirtualRoom = () => {
                     <div className="flex items-center justify-between mb-1">
                       <span className="font-medium text-sm">{msg.user}</span>
                       <span className="text-xs text-gray-500">
-                        {msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString() : 'Just now'}
+                        {msg.timestamp && !isNaN(new Date(msg.timestamp).getTime()) 
+                          ? new Date(msg.timestamp).toLocaleTimeString() 
+                          : 'Just now'}
                       </span>
                     </div>
                     <p className="text-sm text-gray-700">{msg.text}</p>
