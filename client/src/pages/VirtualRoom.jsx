@@ -127,7 +127,14 @@ const VirtualRoom = () => {
       // Handle both formats: direct message or nested in data.message
       const message = data.message || data;
       if (message && message.text) {
-        setMessages(prev => [...prev, message]);
+        // Ensure message has all required fields
+        const normalizedMessage = {
+          id: message.id || Date.now(),
+          user: message.user || 'Unknown',
+          text: message.text,
+          timestamp: message.timestamp || new Date().toISOString()
+        };
+        setMessages(prev => [...prev, normalizedMessage]);
       } else {
         console.error('Invalid message format:', data);
       }
@@ -1303,7 +1310,7 @@ const VirtualRoom = () => {
                     <div className="flex items-center justify-between mb-1">
                       <span className="font-medium text-sm">{msg.user}</span>
                       <span className="text-xs text-gray-500">
-                        {new Date(msg.timestamp).toLocaleTimeString()}
+                        {msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString() : 'Just now'}
                       </span>
                     </div>
                     <p className="text-sm text-gray-700">{msg.text}</p>
