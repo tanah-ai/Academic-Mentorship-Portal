@@ -341,8 +341,12 @@ const VirtualRoom = () => {
   };
 
   const toggleVideo = () => {
-    if (isVideoOn) {
-      stopVideo();
+    if (localStream) {
+      const videoTrack = localStream.getVideoTracks()[0];
+      if (videoTrack) {
+        videoTrack.enabled = !videoTrack.enabled;
+        setIsVideoOn(videoTrack.enabled);
+      }
     } else {
       startVideo();
     }
