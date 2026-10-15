@@ -91,14 +91,15 @@ const VirtualRoom = () => {
   };
 
   const initSocket = () => {
-    // Use the current origin's hostname for WebSocket connection
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const host = window.location.hostname;
-    const port = window.location.port || '5000';
-    const socketUrl = `${protocol}//${host}:${port}`;
+    // Use Render backend URL for WebSocket connection
+    // In production, connect to Render backend; in development, use localhost
+    const isProduction = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+    const socketUrl = isProduction 
+      ? 'https://msu-mentorship-api.onrender.com' 
+      : 'http://localhost:5000';
 
     const newSocket = io(socketUrl, {
-      transports: ['websocket']
+      transports: ['websocket', 'polling']
     });
 
     socketRef.current = newSocket;
