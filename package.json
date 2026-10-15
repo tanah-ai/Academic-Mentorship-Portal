@@ -1,0 +1,20 @@
+{
+  "name": "msu-academic-mentorship-portal",
+  "version": "1.0.0",
+  "description": "Academic Mentorship Portal for Midlands State University - Peer-to-peer learning platform",
+  "main": "server/index.js",
+  "scripts": {
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "server": "cd server && npm run dev",
+    "client": "cd client && npm run dev",
+    "build": "cd client && npm run build",
+    "start": "cd server && npm start",
+    "install-all": "npm install && cd server && npm install && cd ../client && npm install"
+  },
+  "keywords": ["mentorship", "education", "peer-learning", "academic"],
+  "author": "MSU Development Team",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
