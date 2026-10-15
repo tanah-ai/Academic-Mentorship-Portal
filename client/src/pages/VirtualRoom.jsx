@@ -166,8 +166,13 @@ const VirtualRoom = () => {
             console.log('Received remote track');
             if (remoteVideoRef.current) {
               remoteVideoRef.current.srcObject = event.streams[0];
-              remoteVideoRef.current.play().catch(e => console.log('Play error:', e));
               setRemoteStream(event.streams[0]);
+              // Play video with error handling
+              remoteVideoRef.current.play().catch(e => {
+                if (e.name !== 'AbortError') {
+                  console.log('Play error:', e);
+                }
+              });
             }
           };
           
@@ -310,8 +315,12 @@ const VirtualRoom = () => {
           console.log('Mentor received remote track');
           if (remoteVideoRef.current) {
             remoteVideoRef.current.srcObject = event.streams[0];
-            remoteVideoRef.current.play().catch(e => console.log('Play error:', e));
             setRemoteStream(event.streams[0]);
+            remoteVideoRef.current.play().catch(e => {
+              if (e.name !== 'AbortError') {
+                console.log('Play error:', e);
+              }
+            });
           }
         };
         
