@@ -4,6 +4,10 @@ const pdfParse = require('pdf-parse');
 const mammoth = require('mammoth');
 const { createWorker } = require('tesseract.js');
 
+const MAX_OCR_PAGES = 10;
+const OCR_RENDER_SCALE = 1.25;
+let ocrQueue = Promise.resolve();
+
 // Teaching eligibility grades - mentors can only teach modules with these grades
 const teachingEligibleGrades = new Set(['A', '2.1', '2.2']);
 
@@ -43,24 +47,35 @@ const extractText = async (filePath) => {
   if (extension === '.pdf') {
     const result = await pdfParse(buffer);
     if (result.text?.trim()) return result.text;
-
-    // Scanned PDFs have no text layer, so render each page and OCR it.
-    const { pdf } = await import('pdf-to-img');
-    const document = await pdf(filePath, { scale: 2 });
-    const worker = await createWorker('eng');
-    const pages = [];
-
-    try {
-      for await (const page of document) {
-        const ocrResult = await worker.recognize(page);
-        pages.push(ocrResult.data.text);
-      }
-    } finally {
-      await worker.terminate();
-      document.destroy();
+    if (result.numpages > MAX_OCR_PAGES) {
+      const error = new Error(
+        `This scanned transcript has ${result.numpages} pages; scanned PDFs are limited to ${MAX_OCR_PAGES} pages. Upload a searchable PDF instead.`
+      );
+      error.statusCode = 422;
+      throw error;
     }
 
-    return pages.join('\n');
+    const ocrTask = ocrQueue.then(async () => {
+      const { pdf } = await import('pdf-to-img');
+      const worker = await createWorker('eng');
+      let document;
+      const pages = [];
+
+      try {
+        document = await pdf(filePath, { scale: OCR_RENDER_SCALE });
+        for await (const page of document) {
+          const ocrResult = await worker.recognize(page);
+          pages.push(ocrResult.data.text);
+        }
+      } finally {
+        await worker.terminate();
+        if (document) document.destroy();
+      }
+
+      return pages.join('\n');
+    });
+    ocrQueue = ocrTask.catch(() => {});
+    return ocrTask;
   }
 
   const result = await mammoth.extractRawText({ buffer });
@@ -75,25 +90,12 @@ const parseTranscript = async (filePath, catalogue) => {
 
   console.log('Transcript text length:', text.length);
   console.log('Number of modules in catalogue:', catalogue.length);
-  console.log('First 1000 characters of transcript text:', text.substring(0, 1000));
-  
-  // Save full transcript text to a file for inspection
-  const fs = require('fs');
-  const path = require('path');
-  const debugPath = path.join(__dirname, '../../transcript_debug.txt');
-  fs.writeFileSync(debugPath, text, 'utf8');
-  console.log('Full transcript text saved to:', debugPath);
 
   for (const module of catalogue) {
     const moduleCode = module.module_code.toUpperCase();
     const codeIndex = text.indexOf(moduleCode);
     
-    if (codeIndex === -1) {
-      console.log('Module code NOT found in transcript:', moduleCode);
-      continue;
-    }
-    
-    console.log('Module code found:', moduleCode, 'at index:', codeIndex);
+    if (codeIndex === -1) continue;
     
     if (matchedModuleIds.has(module.id)) continue;
 
@@ -101,23 +103,15 @@ const parseTranscript = async (filePath, catalogue) => {
     const rowText = text.slice(codeIndex, codeIndex + 240);
     const gradeMatch = rowText.match(gradePattern);
     
-    if (!gradeMatch) {
-      console.log('No grade match found for module:', moduleCode, 'rowText:', rowText.substring(0, 100));
-      continue;
-    }
+    if (!gradeMatch) continue;
 
     const rawGrade = gradeMatch[1].toUpperCase().replace('.', '.');
     const grade = gradeMap.get(rawGrade) || gradeMap.get(rawGrade.replace('.', '.'));
     
-    if (!grade) {
-      console.log('Grade not in map:', rawGrade);
-      continue;
-    }
+    if (!grade) continue;
 
     // Check if this grade is eligible for teaching
     const canTeach = teachingEligibleGrades.has(grade);
-
-    console.log('Module matched:', moduleCode, 'Grade:', grade, 'Can teach:', canTeach);
 
     matches.push({
       module_id: module.id,

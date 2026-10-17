@@ -4,6 +4,7 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const dotenv = require('dotenv');
 const path = require('path');
+const uploadsDir = require('./config/uploads');
 const { createServer } = require('http');
 const { Server } = require('socket.io');
 
@@ -123,7 +124,7 @@ app.use('/api/analytics', analyticsRoutes);
 app.use('/api/upload', uploadRoutes);
 
 // Serve uploaded files statically
-app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
+app.use('/uploads', express.static(uploadsDir));
 // app.use('/api/migrations', migrationRoutes); // Removed after migration
 // app.use('/api/setup', setupRoutes); // Removed for security
 

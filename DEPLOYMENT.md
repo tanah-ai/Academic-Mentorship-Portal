@@ -52,7 +52,14 @@ This guide will help you deploy the MSU Academic Mentorship Portal to the cloud 
    - **Runtime**: `Node`
    - **Build Command**: `npm install`
    - **Start Command**: `node index.js`
-5. Add Environment Variables (from `server/.env.example`):
+5. Attach a **Persistent Disk** to the web service, mounted at `/var/data`.
+   Transcript and session uploads are stored on the service filesystem and are
+   otherwise lost when Render replaces or restarts an instance. Set
+   `UPLOAD_DIR` to `/var/data/uploads` so files survive deploys and restarts.
+   The service must use this same mount path whenever it runs. Render persistent
+   disks require a plan that supports them; if you remain on a plan without disks,
+   use external persistent file storage instead.
+6. Add Environment Variables (from `server/.env.example`):
    - `PORT`: `5000`
    - `NODE_ENV`: `production`
    - `DB_HOST`: (from your PostgreSQL Internal Database URL)
@@ -62,14 +69,15 @@ This guide will help you deploy the MSU Academic Mentorship Portal to the cloud 
    - `DB_PASSWORD`: (from PostgreSQL connection details)
    - `JWT_SECRET`: (generate a strong random string)
    - `JWT_EXPIRE`: `7d`
+   - `UPLOAD_DIR`: `/var/data/uploads`
    - `CLIENT_URL`: (your Vercel URL - add after deploying frontend)
    - `EMAIL_HOST`: `smtp.gmail.com` (or your email provider)
    - `EMAIL_PORT`: `587`
    - `EMAIL_USER`: your email
    - `EMAIL_PASSWORD`: your email app password
-6. Click "Create Web Service"
-7. Wait for deployment to complete
-8. Save the **Service URL** (e.g., `https://msu-mentorship-api.onrender.com`)
+7. Click "Create Web Service"
+8. Wait for deployment to complete
+9. Save the **Service URL** (e.g., `https://msu-mentorship-api.onrender.com`)
 
 ---
 
@@ -156,6 +164,14 @@ To use a custom domain:
 - Verify PostgreSQL is running on Render
 - Check database credentials in environment variables
 - Ensure database schema is imported
+
+### Transcript file not found during approval
+- Confirm the Render web service has a persistent disk mounted at `/var/data`
+- Confirm `UPLOAD_DIR` is set to `/var/data/uploads`
+- Files uploaded before the persistent disk was configured may need to be uploaded again
+
+Scanned PDF transcripts are OCR-processed one at a time and limited to 10 pages to
+reduce memory use. Ask mentors to upload searchable PDFs when possible.
 
 ---
 

@@ -5,17 +5,17 @@ const path = require('path');
 const fs = require('fs');
 const { body, validationResult } = require('express-validator');
 const pool = require('../config/database');
+const uploadsDir = require('../config/uploads');
 const { protect, isMentor, isAdmin } = require('../middleware/auth');
 const { parseTranscript } = require('../utils/transcriptParser');
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const uploadDir = process.env.UPLOAD_DIR || './uploads';
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
+    if (!fs.existsSync(uploadsDir)) {
+      fs.mkdirSync(uploadsDir, { recursive: true });
     }
-    cb(null, uploadDir);
+    cb(null, uploadsDir);
   },
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
@@ -42,7 +42,7 @@ const upload = multer({
 // Configure multer for session file uploads
 const sessionStorage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const uploadDir = path.join(process.env.UPLOAD_DIR || './uploads', 'sessions');
+    const uploadDir = path.join(uploadsDir, 'sessions');
     if (!fs.existsSync(uploadDir)) {
       fs.mkdirSync(uploadDir, { recursive: true });
     }
@@ -200,6 +200,14 @@ router.post('/verify/:id', protect, isAdmin, [
     // Parse the transcript before approving it so all modules are added,
     // but only those with eligible grades (A, 2.1, 2.2) are marked as teachable.
     if (status === 'approved') {
+      // Check if file exists before parsing
+      if (!verification.file_path || !fs.existsSync(verification.file_path)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Transcript file not found. The file may have been deleted due to server restart. Please ask the mentor to re-upload their transcript.'
+        });
+      }
+
       const catalogueResult = await pool.query(
         'SELECT id, module_code FROM modules'
       );
@@ -268,7 +276,7 @@ router.post('/verify/:id', protect, isAdmin, [
     console.error('Verify transcript error:', error);
     console.error('Error message:', error.message);
     console.error('Error code:', error.code);
-    res.status(500).json({ success: false, error: error.message || 'Server error' });
+    res.status(error.statusCode || 500).json({ success: false, error: error.message || 'Server error' });
   }
 });
 
