@@ -38,7 +38,7 @@ const normalizeText = (text) => text
   .trim();
 
 // Expanded pattern to catch all grades including 3, Pass, Fail
-const gradePattern = /(DISTINCTION|DIST\.?|FIRST\s+CLASS|SECOND\s+CLASS|2\s*[.,]\s*1|2\s*[.,]\s*2|\b21\b|\b22\b|\b1\b|\bA\b|\b3\b|PASS|FAIL|\bP\b|\bF\b)/i;
+const gradePattern = /(DISTINCTION|DIST\.?|FIRST\s+CLASS|SECOND\s+CLASS|2\s*[.,]\s*[1IL]|2\s*[.,]\s*2|\b21\b|\b22\b|\b1\b|\bA\b|\b3\b|PASS|FAIL|\bP\b|\bF\b)/i;
 
 const recognizePdfPages = async (filePath, pageCount) => {
   if (pageCount > MAX_OCR_PAGES) {
@@ -76,7 +76,13 @@ const findModuleCode = (text, moduleCode) => {
   const code = moduleCode.toUpperCase().replace(/[^A-Z0-9]/g, '');
   if (!code) return null;
 
-  const flexibleCode = [...code].map((character) => character.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('[\\s./_-]*');
+  const ocrVariants = { '0': '0O', O: 'O0', '1': '1IL', I: 'I1L', L: 'L1I' };
+  const flexibleCode = [...code]
+    .map((character) => {
+      const variants = ocrVariants[character];
+      return variants ? `[${variants}]` : character.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    })
+    .join('[\\s./_-]*');
   const match = new RegExp(`(^|[^A-Z0-9])(${flexibleCode})(?=$|[^A-Z0-9])`).exec(text);
   if (!match) return null;
 
@@ -120,7 +126,8 @@ const parseTranscriptText = (rawText, catalogue) => {
     if (!gradeMatch) continue;
 
     const rawGrade = gradeMatch[1].toUpperCase().replace(/\s+/g, '').replace(',', '.');
-    const grade = gradeMap.get(rawGrade);
+    const normalizedGrade = /^2\.[IL]$/.test(rawGrade) ? '2.1' : rawGrade;
+    const grade = gradeMap.get(normalizedGrade);
     
     if (!grade) continue;
 
