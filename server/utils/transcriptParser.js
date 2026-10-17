@@ -38,7 +38,18 @@ const normalizeText = (text) => text
   .trim();
 
 // Expanded pattern to catch all grades including 3, Pass, Fail
-const gradePattern = /(DISTINCTION|DIST\.?|FIRST\s+CLASS|SECOND\s+CLASS|2\.1|2\.2|\b21\b|\b22\b|\b1\b|\bA\b|\b3\b|PASS|FAIL|P|F)/i;
+const gradePattern = /(DISTINCTION|DIST\.?|FIRST\s+CLASS|SECOND\s+CLASS|2\s*[.,]\s*1|2\s*[.,]\s*2|\b21\b|\b22\b|\b1\b|\bA\b|\b3\b|PASS|FAIL|\bP\b|\bF\b)/i;
+
+const findModuleCode = (text, moduleCode) => {
+  const code = moduleCode.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if (!code) return null;
+
+  const flexibleCode = [...code].map((character) => character.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('[\\s./_-]*');
+  const match = new RegExp(`(^|[^A-Z0-9])(${flexibleCode})(?=$|[^A-Z0-9])`).exec(text);
+  if (!match) return null;
+
+  return match.index + match[1].length + match[2].length;
+};
 
 const extractText = async (filePath) => {
   const extension = path.extname(filePath).toLowerCase();
@@ -82,31 +93,30 @@ const extractText = async (filePath) => {
   return result.value || '';
 };
 
-const parseTranscript = async (filePath, catalogue) => {
-  const rawText = await extractText(filePath);
+const parseTranscriptText = (rawText, catalogue) => {
   const text = normalizeText(rawText);
   const matches = [];
   const matchedModuleIds = new Set();
+  let moduleCodesFound = 0;
 
   console.log('Transcript text length:', text.length);
   console.log('Number of modules in catalogue:', catalogue.length);
 
   for (const module of catalogue) {
-    const moduleCode = module.module_code.toUpperCase();
-    const codeIndex = text.indexOf(moduleCode);
-    
-    if (codeIndex === -1) continue;
+    const codeEnd = findModuleCode(text, module.module_code);
+    if (codeEnd === null) continue;
+    moduleCodesFound++;
     
     if (matchedModuleIds.has(module.id)) continue;
 
     // Transcript rows commonly place the result after the module code/name.
-    const rowText = text.slice(codeIndex, codeIndex + 240);
+    const rowText = text.slice(codeEnd, codeEnd + 240);
     const gradeMatch = rowText.match(gradePattern);
     
     if (!gradeMatch) continue;
 
-    const rawGrade = gradeMatch[1].toUpperCase().replace('.', '.');
-    const grade = gradeMap.get(rawGrade) || gradeMap.get(rawGrade.replace('.', '.'));
+    const rawGrade = gradeMatch[1].toUpperCase().replace(/\s+/g, '').replace(',', '.');
+    const grade = gradeMap.get(rawGrade);
     
     if (!grade) continue;
 
@@ -124,7 +134,11 @@ const parseTranscript = async (filePath, catalogue) => {
     matchedModuleIds.add(module.id);
   }
 
-  return { textFound: text.length > 0, matches };
+  return { textFound: text.length > 0, moduleCodesFound, matches };
 };
 
-module.exports = { parseTranscript };
+const parseTranscript = async (filePath, catalogue) => (
+  parseTranscriptText(await extractText(filePath), catalogue)
+);
+
+module.exports = { parseTranscript, parseTranscriptText };

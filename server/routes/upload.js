@@ -220,9 +220,11 @@ router.post('/verify/:id', protect, isAdmin, [
       if (parsedTranscript.matches.length === 0) {
         return res.status(400).json({
           success: false,
-          error: parsedTranscript.textFound
-            ? 'No module results were found in the transcript. Upload a transcript with module codes and grades.'
-            : 'This transcript is scanned or contains no readable text. Upload a searchable PDF or DOCX transcript so modules and grades can be detected automatically.'
+          error: !parsedTranscript.textFound
+            ? 'This transcript is scanned or contains no readable text. Upload a searchable PDF or DOCX transcript so modules and grades can be detected automatically.'
+            : parsedTranscript.moduleCodesFound === 0
+              ? 'The transcript text was readable, but none of its module codes matched the portal catalogue. Check that the modules are listed in the portal and re-upload a clear transcript.'
+              : 'Module codes were found, but no grades could be matched to them. Upload a clear transcript showing each module code and grade, or check the grade format.'
         });
       }
 
