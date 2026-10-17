@@ -40,6 +40,38 @@ const normalizeText = (text) => text
 // Expanded pattern to catch all grades including 3, Pass, Fail
 const gradePattern = /(DISTINCTION|DIST\.?|FIRST\s+CLASS|SECOND\s+CLASS|2\s*[.,]\s*1|2\s*[.,]\s*2|\b21\b|\b22\b|\b1\b|\bA\b|\b3\b|PASS|FAIL|\bP\b|\bF\b)/i;
 
+const recognizePdfPages = async (filePath, pageCount) => {
+  if (pageCount > MAX_OCR_PAGES) {
+    const error = new Error(
+      `This scanned transcript has ${pageCount} pages; scanned PDFs are limited to ${MAX_OCR_PAGES} pages. Upload a searchable PDF instead.`
+    );
+    error.statusCode = 422;
+    throw error;
+  }
+
+  const ocrTask = ocrQueue.then(async () => {
+    const { pdf } = await import('pdf-to-img');
+    const worker = await createWorker('eng');
+    let document;
+    const pages = [];
+
+    try {
+      document = await pdf(filePath, { scale: OCR_RENDER_SCALE });
+      for await (const page of document) {
+        const ocrResult = await worker.recognize(page);
+        pages.push(ocrResult.data.text);
+      }
+    } finally {
+      await worker.terminate();
+      if (document) document.destroy();
+    }
+
+    return pages.join('\n');
+  });
+  ocrQueue = ocrTask.catch(() => {});
+  return ocrTask;
+};
+
 const findModuleCode = (text, moduleCode) => {
   const code = moduleCode.toUpperCase().replace(/[^A-Z0-9]/g, '');
   if (!code) return null;
@@ -58,35 +90,7 @@ const extractText = async (filePath) => {
   if (extension === '.pdf') {
     const result = await pdfParse(buffer);
     if (result.text?.trim()) return result.text;
-    if (result.numpages > MAX_OCR_PAGES) {
-      const error = new Error(
-        `This scanned transcript has ${result.numpages} pages; scanned PDFs are limited to ${MAX_OCR_PAGES} pages. Upload a searchable PDF instead.`
-      );
-      error.statusCode = 422;
-      throw error;
-    }
-
-    const ocrTask = ocrQueue.then(async () => {
-      const { pdf } = await import('pdf-to-img');
-      const worker = await createWorker('eng');
-      let document;
-      const pages = [];
-
-      try {
-        document = await pdf(filePath, { scale: OCR_RENDER_SCALE });
-        for await (const page of document) {
-          const ocrResult = await worker.recognize(page);
-          pages.push(ocrResult.data.text);
-        }
-      } finally {
-        await worker.terminate();
-        if (document) document.destroy();
-      }
-
-      return pages.join('\n');
-    });
-    ocrQueue = ocrTask.catch(() => {});
-    return ocrTask;
+    return recognizePdfPages(filePath, result.numpages);
   }
 
   const result = await mammoth.extractRawText({ buffer });
@@ -137,8 +141,24 @@ const parseTranscriptText = (rawText, catalogue) => {
   return { textFound: text.length > 0, moduleCodesFound, matches };
 };
 
-const parseTranscript = async (filePath, catalogue) => (
-  parseTranscriptText(await extractText(filePath), catalogue)
-);
+const parseTranscript = async (filePath, catalogue) => {
+  if (path.extname(filePath).toLowerCase() === '.pdf') {
+    const result = await pdfParse(fs.readFileSync(filePath));
+    const extracted = parseTranscriptText(result.text || '', catalogue);
+    if (extracted.moduleCodesFound > 0) return extracted;
+    if (extracted.textFound && result.numpages > MAX_OCR_PAGES) return extracted;
+
+    const ocrText = await recognizePdfPages(filePath, result.numpages);
+    const recognized = parseTranscriptText(ocrText, catalogue);
+    if (recognized.moduleCodesFound > 0) return recognized;
+
+    return {
+      ...recognized,
+      textFound: extracted.textFound || recognized.textFound
+    };
+  }
+
+  return parseTranscriptText(await extractText(filePath), catalogue);
+};
 
 module.exports = { parseTranscript, parseTranscriptText };
