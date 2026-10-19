@@ -1,14 +1,14 @@
-const { Resend } = require('resend');
+const sgMail = require('@sendgrid/mail');
 
-// Initialize Resend client
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Initialize SendGrid client
+sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
 // Send registration email
 const sendRegistrationEmail = async (email, firstName, lastName) => {
   try {
-    const data = await resend.emails.send({
-      from: process.env.EMAIL_FROM || 'MSU Mentorship Portal <onboarding@resend.dev>',
+    const msg = {
       to: email,
+      from: process.env.EMAIL_FROM || 'noreply@msu.ac.zw',
       subject: 'Welcome to MSU Academic Mentorship Portal',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
@@ -43,8 +43,9 @@ const sendRegistrationEmail = async (email, firstName, lastName) => {
           </div>
         </div>
       `
-    });
-    return { success: true, data };
+    };
+    await sgMail.send(msg);
+    return { success: true };
   } catch (error) {
     console.error('Email sending error:', error);
     return { success: false, error: error.message };
@@ -54,9 +55,9 @@ const sendRegistrationEmail = async (email, firstName, lastName) => {
 // Send session booking email to mentor
 const sendSessionBookingEmailToMentor = async (mentorEmail, mentorName, menteeName, moduleCode, sessionTitle, scheduledDate) => {
   try {
-    const data = await resend.emails.send({
-      from: process.env.EMAIL_FROM || 'MSU Mentorship Portal <onboarding@resend.dev>',
+    const msg = {
       to: mentorEmail,
+      from: process.env.EMAIL_FROM || 'noreply@msu.ac.zw',
       subject: `New Session Request: ${moduleCode}`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
@@ -85,8 +86,9 @@ const sendSessionBookingEmailToMentor = async (mentorEmail, mentorName, menteeNa
           </div>
         </div>
       `
-    });
-    return { success: true, data };
+    };
+    await sgMail.send(msg);
+    return { success: true };
   } catch (error) {
     console.error('Email sending error:', error);
     return { success: false, error: error.message };
@@ -96,9 +98,9 @@ const sendSessionBookingEmailToMentor = async (mentorEmail, mentorName, menteeNa
 // Send session started email to mentee
 const sendSessionStartedEmailToMentee = async (menteeEmail, menteeName, mentorName, moduleCode, sessionTitle, meetingLink) => {
   try {
-    const data = await resend.emails.send({
-      from: process.env.EMAIL_FROM || 'MSU Mentorship Portal <onboarding@resend.dev>',
+    const msg = {
       to: menteeEmail,
+      from: process.env.EMAIL_FROM || 'noreply@msu.ac.zw',
       subject: `Your Session Has Started: ${moduleCode}`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
@@ -129,8 +131,9 @@ const sendSessionStartedEmailToMentee = async (menteeEmail, menteeName, mentorNa
           </div>
         </div>
       `
-    });
-    return { success: true, data };
+    };
+    await sgMail.send(msg);
+    return { success: true };
   } catch (error) {
     console.error('Email sending error:', error);
     return { success: false, error: error.message };
@@ -141,9 +144,9 @@ const sendSessionStartedEmailToMentee = async (menteeEmail, menteeName, mentorNa
 const sendPasswordResetEmail = async (email, firstName, resetToken) => {
   try {
     const resetUrl = `${process.env.CLIENT_URL || 'http://localhost:5173'}/reset-password?token=${resetToken}`;
-    const data = await resend.emails.send({
-      from: process.env.EMAIL_FROM || 'MSU Mentorship Portal <onboarding@resend.dev>',
+    const msg = {
       to: email,
+      from: process.env.EMAIL_FROM || 'noreply@msu.ac.zw',
       subject: 'Password Reset Request - MSU Mentorship Portal',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
@@ -172,8 +175,9 @@ const sendPasswordResetEmail = async (email, firstName, resetToken) => {
           </div>
         </div>
       `
-    });
-    return { success: true, data };
+    };
+    await sgMail.send(msg);
+    return { success: true };
   } catch (error) {
     console.error('Email sending error:', error);
     return { success: false, error: error.message };
