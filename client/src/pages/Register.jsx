@@ -43,9 +43,18 @@ const Register = () => {
   }, [isRegistered]);
 
   const handleChange = (e) => {
+    const { name, value } = e.target;
+
+    // Validate name fields to only allow letters, spaces, hyphens, and apostrophes
+    if (name === 'first_name' || name === 'last_name') {
+      if (value && !/^[a-zA-Z\s'-]*$/.test(value)) {
+        return; // Don't update if invalid characters are entered
+      }
+    }
+
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value
+      [name]: value
     });
   };
 

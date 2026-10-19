@@ -33,11 +33,13 @@ router.post('/register', [
   body('first_name')
     .notEmpty().withMessage('First name is required')
     .trim()
+    .matches(/^[a-zA-Z\s'-]+$/).withMessage('First name must contain only letters, spaces, hyphens, and apostrophes')
     .escape()
     .isLength({ max: 50 }).withMessage('First name must be less than 50 characters'),
   body('last_name')
     .notEmpty().withMessage('Last name is required')
     .trim()
+    .matches(/^[a-zA-Z\s'-]+$/).withMessage('Last name must contain only letters, spaces, hyphens, and apostrophes')
     .escape()
     .isLength({ max: 50 }).withMessage('Last name must be less than 50 characters'),
   body('user_type')
@@ -445,7 +447,12 @@ router.post('/forgot-password', [
     );
 
     // Send password reset email
-    await sendPasswordResetEmail(user.email, user.first_name, resetToken);
+    const emailResult = await sendPasswordResetEmail(user.email, user.first_name, resetToken);
+    if (!emailResult.success) {
+      console.error('Failed to send password reset email:', emailResult.error);
+    } else {
+      console.log('Password reset email sent successfully to:', user.email);
+    }
 
     res.json({ success: true, message: 'If an account exists with this email, a password reset link has been sent' });
   } catch (error) {
