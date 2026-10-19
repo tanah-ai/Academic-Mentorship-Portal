@@ -2,14 +2,10 @@ const nodemailer = require('nodemailer');
 
 // Create email transporter
 const createTransporter = () => {
-  // Use Gmail's IPv4 address directly to avoid IPv6 resolution on Render
-  // smtp.gmail.com resolves to both IPv4 and IPv6, Render tries IPv6 first which fails
-  const gmailIPv4 = '142.250.185.109';
-
   const transporter = nodemailer.createTransport({
-    host: process.env.EMAIL_HOST_IP || gmailIPv4,
-    port: 465, // Use port 465 with SSL instead of 587 with TLS
-    secure: true, // true for 465 (SSL), false for other ports
+    host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+    port: 465, // Use port 465 with SSL
+    secure: true, // true for 465 (SSL)
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASSWORD
@@ -17,15 +13,14 @@ const createTransporter = () => {
     // Force IPv4 to avoid IPv6 connection issues on Render
     family: 4,
     // Add connection timeout
-    connectionTimeout: 15000,
-    greetingTimeout: 10000,
-    socketTimeout: 15000,
+    connectionTimeout: 20000,
+    greetingTimeout: 15000,
+    socketTimeout: 20000,
     // Disable connection pooling to avoid stale connections
     pool: false,
     // Use TLS
     tls: {
-      rejectUnauthorized: false,
-      servername: 'smtp.gmail.com'
+      rejectUnauthorized: false
     }
   });
 
