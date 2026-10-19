@@ -8,8 +8,8 @@ const createTransporter = () => {
 
   const transporter = nodemailer.createTransport({
     host: process.env.EMAIL_HOST_IP || gmailIPv4,
-    port: process.env.EMAIL_PORT || 587,
-    secure: false, // true for 465, false for other ports
+    port: 465, // Use port 465 with SSL instead of 587 with TLS
+    secure: true, // true for 465 (SSL), false for other ports
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASSWORD
@@ -17,9 +17,9 @@ const createTransporter = () => {
     // Force IPv4 to avoid IPv6 connection issues on Render
     family: 4,
     // Add connection timeout
-    connectionTimeout: 10000,
-    greetingTimeout: 5000,
-    socketTimeout: 10000,
+    connectionTimeout: 15000,
+    greetingTimeout: 10000,
+    socketTimeout: 15000,
     // Disable connection pooling to avoid stale connections
     pool: false,
     // Use TLS
