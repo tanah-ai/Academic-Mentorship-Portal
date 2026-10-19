@@ -1,23 +1,13 @@
 const nodemailer = require('nodemailer');
-const dns = require('dns').promises;
 
 // Create email transporter
-const createTransporter = async () => {
-  // Force DNS resolution to use IPv4
-  const originalLookup = dns.lookup;
-  dns.lookup = async (hostname, options) => {
-    if (typeof options === 'number') {
-      options = { family: 4 };
-    } else if (!options) {
-      options = { family: 4 };
-    } else {
-      options.family = 4;
-    }
-    return originalLookup(hostname, options);
-  };
+const createTransporter = () => {
+  // Use Gmail's IPv4 address directly to avoid IPv6 resolution on Render
+  // smtp.gmail.com resolves to both IPv4 and IPv6, Render tries IPv6 first which fails
+  const gmailIPv4 = '142.250.185.109';
 
   const transporter = nodemailer.createTransport({
-    host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+    host: process.env.EMAIL_HOST_IP || gmailIPv4,
     port: process.env.EMAIL_PORT || 587,
     secure: false, // true for 465, false for other ports
     auth: {
@@ -31,7 +21,12 @@ const createTransporter = async () => {
     greetingTimeout: 5000,
     socketTimeout: 10000,
     // Disable connection pooling to avoid stale connections
-    pool: false
+    pool: false,
+    // Use TLS
+    tls: {
+      rejectUnauthorized: false,
+      servername: 'smtp.gmail.com'
+    }
   });
 
   return transporter;
@@ -40,7 +35,7 @@ const createTransporter = async () => {
 // Send registration email
 const sendRegistrationEmail = async (email, firstName, lastName) => {
   try {
-    const transporter = await createTransporter();
+    const transporter = createTransporter();
     
     const mailOptions = {
       from: `"MSU Mentorship Portal" <${process.env.EMAIL_USER}>`,
@@ -92,7 +87,7 @@ const sendRegistrationEmail = async (email, firstName, lastName) => {
 // Send session booking email to mentor
 const sendSessionBookingEmailToMentor = async (mentorEmail, mentorName, menteeName, moduleCode, sessionTitle, scheduledDate) => {
   try {
-    const transporter = await createTransporter();
+    const transporter = createTransporter();
     
     const mailOptions = {
       from: `"MSU Mentorship Portal" <${process.env.EMAIL_USER}>`,
@@ -138,7 +133,7 @@ const sendSessionBookingEmailToMentor = async (mentorEmail, mentorName, menteeNa
 // Send session started email to mentee
 const sendSessionStartedEmailToMentee = async (menteeEmail, menteeName, mentorName, moduleCode, sessionTitle, meetingLink) => {
   try {
-    const transporter = await createTransporter();
+    const transporter = createTransporter();
     
     const mailOptions = {
       from: `"MSU Mentorship Portal" <${process.env.EMAIL_USER}>`,
@@ -186,7 +181,7 @@ const sendSessionStartedEmailToMentee = async (menteeEmail, menteeName, mentorNa
 // Send password reset email
 const sendPasswordResetEmail = async (email, firstName, resetToken) => {
   try {
-    const transporter = await createTransporter();
+    const transporter = createTransporter();
     const resetUrl = `${process.env.CLIENT_URL || 'http://localhost:5173'}/reset-password?token=${resetToken}`;
     
     const mailOptions = {
