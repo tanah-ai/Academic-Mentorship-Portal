@@ -1,39 +1,13 @@
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 
-// Create email transporter
-const createTransporter = () => {
-  const transporter = nodemailer.createTransport({
-    host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-    port: 465, // Use port 465 with SSL
-    secure: true, // true for 465 (SSL)
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASSWORD
-    },
-    // Force IPv4 to avoid IPv6 connection issues on Render
-    family: 4,
-    // Add connection timeout
-    connectionTimeout: 20000,
-    greetingTimeout: 15000,
-    socketTimeout: 20000,
-    // Disable connection pooling to avoid stale connections
-    pool: false,
-    // Use TLS
-    tls: {
-      rejectUnauthorized: false
-    }
-  });
-
-  return transporter;
-};
+// Initialize Resend client
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 // Send registration email
 const sendRegistrationEmail = async (email, firstName, lastName) => {
   try {
-    const transporter = createTransporter();
-    
-    const mailOptions = {
-      from: `"MSU Mentorship Portal" <${process.env.EMAIL_USER}>`,
+    const data = await resend.emails.send({
+      from: process.env.EMAIL_FROM || 'MSU Mentorship Portal <onboarding@resend.dev>',
       to: email,
       subject: 'Welcome to MSU Academic Mentorship Portal',
       html: `
@@ -69,10 +43,8 @@ const sendRegistrationEmail = async (email, firstName, lastName) => {
           </div>
         </div>
       `
-    };
-
-    await transporter.sendMail(mailOptions);
-    return { success: true };
+    });
+    return { success: true, data };
   } catch (error) {
     console.error('Email sending error:', error);
     return { success: false, error: error.message };
@@ -82,10 +54,8 @@ const sendRegistrationEmail = async (email, firstName, lastName) => {
 // Send session booking email to mentor
 const sendSessionBookingEmailToMentor = async (mentorEmail, mentorName, menteeName, moduleCode, sessionTitle, scheduledDate) => {
   try {
-    const transporter = createTransporter();
-    
-    const mailOptions = {
-      from: `"MSU Mentorship Portal" <${process.env.EMAIL_USER}>`,
+    const data = await resend.emails.send({
+      from: process.env.EMAIL_FROM || 'MSU Mentorship Portal <onboarding@resend.dev>',
       to: mentorEmail,
       subject: `New Session Request: ${moduleCode}`,
       html: `
@@ -115,10 +85,8 @@ const sendSessionBookingEmailToMentor = async (mentorEmail, mentorName, menteeNa
           </div>
         </div>
       `
-    };
-
-    await transporter.sendMail(mailOptions);
-    return { success: true };
+    });
+    return { success: true, data };
   } catch (error) {
     console.error('Email sending error:', error);
     return { success: false, error: error.message };
@@ -128,10 +96,8 @@ const sendSessionBookingEmailToMentor = async (mentorEmail, mentorName, menteeNa
 // Send session started email to mentee
 const sendSessionStartedEmailToMentee = async (menteeEmail, menteeName, mentorName, moduleCode, sessionTitle, meetingLink) => {
   try {
-    const transporter = createTransporter();
-    
-    const mailOptions = {
-      from: `"MSU Mentorship Portal" <${process.env.EMAIL_USER}>`,
+    const data = await resend.emails.send({
+      from: process.env.EMAIL_FROM || 'MSU Mentorship Portal <onboarding@resend.dev>',
       to: menteeEmail,
       subject: `Your Session Has Started: ${moduleCode}`,
       html: `
@@ -163,10 +129,8 @@ const sendSessionStartedEmailToMentee = async (menteeEmail, menteeName, mentorNa
           </div>
         </div>
       `
-    };
-
-    await transporter.sendMail(mailOptions);
-    return { success: true };
+    });
+    return { success: true, data };
   } catch (error) {
     console.error('Email sending error:', error);
     return { success: false, error: error.message };
@@ -176,11 +140,9 @@ const sendSessionStartedEmailToMentee = async (menteeEmail, menteeName, mentorNa
 // Send password reset email
 const sendPasswordResetEmail = async (email, firstName, resetToken) => {
   try {
-    const transporter = createTransporter();
     const resetUrl = `${process.env.CLIENT_URL || 'http://localhost:5173'}/reset-password?token=${resetToken}`;
-    
-    const mailOptions = {
-      from: `"MSU Mentorship Portal" <${process.env.EMAIL_USER}>`,
+    const data = await resend.emails.send({
+      from: process.env.EMAIL_FROM || 'MSU Mentorship Portal <onboarding@resend.dev>',
       to: email,
       subject: 'Password Reset Request - MSU Mentorship Portal',
       html: `
@@ -210,10 +172,8 @@ const sendPasswordResetEmail = async (email, firstName, resetToken) => {
           </div>
         </div>
       `
-    };
-
-    await transporter.sendMail(mailOptions);
-    return { success: true };
+    });
+    return { success: true, data };
   } catch (error) {
     console.error('Email sending error:', error);
     return { success: false, error: error.message };
