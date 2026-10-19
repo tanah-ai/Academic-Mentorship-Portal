@@ -9,7 +9,13 @@ const createTransporter = () => {
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASSWORD
-    }
+    },
+    // Force IPv4 to avoid IPv6 connection issues on Render
+    family: 4,
+    // Add connection timeout
+    connectionTimeout: 10000,
+    greetingTimeout: 5000,
+    socketTimeout: 10000
   });
 };
 
