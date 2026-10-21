@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useDataLite } from '../contexts/DataLiteContext';
 import axios from 'axios';
-import { Users, Calendar, BookOpen, TrendingUp, FileText, CheckCircle, XCircle, Clock, BarChart3, Trash2, Award, Download, Plus, Minus, FileDown } from 'lucide-react';
+import { Users, Calendar, BookOpen, TrendingUp, FileText, CheckCircle, XCircle, Clock, BarChart3, Trash2, Award, Download, Plus, Minus, FileDown, Trophy } from 'lucide-react';
 import toast from 'react-hot-toast';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
