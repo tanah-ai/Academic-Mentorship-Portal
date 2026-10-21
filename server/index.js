@@ -77,6 +77,9 @@ app.use(cors({
   maxAge: 600
 }));
 
+// Trust proxy for Render
+app.set('trust proxy', true);
+
 // Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
