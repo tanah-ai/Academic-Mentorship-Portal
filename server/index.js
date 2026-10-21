@@ -198,14 +198,22 @@ io.on('connection', (socket) => {
 // Error handling middleware
 app.use(errorHandler);
 
+// Run database migrations on startup
+const runAnalyticsMigration = require('./utils/runMigration');
+
 const PORT = process.env.PORT || 5000;
 const HOST = '0.0.0.0'; // Allow connections from any device on the network
 
-httpServer.listen(PORT, HOST, () => {
-  console.log(`Server running on http://${HOST}:${PORT}`);
-  console.log(`Local access: http://localhost:${PORT}`);
-  console.log(`Network access: http://192.168.1.250:${PORT}`);
-  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-});
+// Start server with migration
+(async () => {
+  await runAnalyticsMigration();
+
+  httpServer.listen(PORT, HOST, () => {
+    console.log(`Server running on http://${HOST}:${PORT}`);
+    console.log(`Local access: http://localhost:${PORT}`);
+    console.log(`Network access: http://192.168.1.250:${PORT}`);
+    console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+  });
+})();
 
 module.exports = { app, io };

@@ -33,6 +33,7 @@ CREATE TABLE users (
     is_mentor_verified BOOLEAN DEFAULT FALSE,
     reputation_score INTEGER DEFAULT 0,
     total_sessions INTEGER DEFAULT 0,
+    activity_score INTEGER DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     last_login TIMESTAMP,
@@ -196,12 +197,30 @@ CREATE TABLE help_nudges (
     sent_at TIMESTAMP,
     is_dismissed BOOLEAN DEFAULT FALSE,
     dismissed_at TIMESTAMP,
+    action_taken VARCHAR(20), -- 'connect' or 'decline'
+    action_taken_at TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX idx_help_nudges_user_id ON help_nudges(user_id);
 CREATE INDEX idx_help_nudges_module_id ON help_nudges(module_id);
 CREATE INDEX idx_help_nudges_is_sent ON help_nudges(is_sent);
+
+-- Login attempts table (for tracking all login attempts)
+CREATE TABLE login_attempts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    email VARCHAR(255) NOT NULL,
+    success BOOLEAN NOT NULL,
+    failure_reason VARCHAR(100),
+    ip_address VARCHAR(45),
+    user_agent TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_login_attempts_user_id ON login_attempts(user_id);
+CREATE INDEX idx_login_attempts_email ON login_attempts(email);
+CREATE INDEX idx_login_attempts_created_at ON login_attempts(created_at);
 
 -- Insert default badges
 INSERT INTO badges (name, description, icon, requirement_type, requirement_value, points) VALUES

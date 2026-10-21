@@ -2,9 +2,10 @@ import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useDataLite } from '../contexts/DataLiteContext';
 import axios from 'axios';
-import { Users, Calendar, BookOpen, TrendingUp, FileText, CheckCircle, XCircle, Clock, BarChart3, Trash2, Award, Download, Plus, Minus } from 'lucide-react';
+import { Users, Calendar, BookOpen, TrendingUp, FileText, CheckCircle, XCircle, Clock, BarChart3, Trash2, Award, Download, Plus, Minus, FileDown } from 'lucide-react';
 import toast from 'react-hot-toast';
 import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 import msuLogo from '/msu-logo.png?url';
 import { notifyError } from '../utils/notifications';
 
@@ -40,6 +41,9 @@ const AdminDashboard = () => {
   const [showCertificateModal, setShowCertificateModal] = useState(false);
   const [certificateData, setCertificateData] = useState(null);
   const certificateRef = useRef(null);
+  const [reports, setReports] = useState(null);
+  const [topPerformers, setTopPerformers] = useState(null);
+  const [reportsLoading, setReportsLoading] = useState(false);
 
   useEffect(() => {
     if (user?.user_type !== 'admin') {
@@ -66,6 +70,13 @@ const AdminDashboard = () => {
     if (user?.user_type === 'admin' && activeTab === 'badges') {
       fetchMentorsWithBadges();
       fetchBadges();
+    }
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (user?.user_type === 'admin' && activeTab === 'reports') {
+      fetchReports();
+      fetchTopPerformers();
     }
   }, [activeTab]);
 
@@ -117,6 +128,72 @@ const AdminDashboard = () => {
     } catch (error) {
       console.error('Failed to fetch badges:', error);
       notifyError(error, 'Could not load available badges');
+    }
+  };
+
+  const fetchReports = async () => {
+    setReportsLoading(true);
+    try {
+      const response = await axios.post('/api/analytics/generate-reports', { report_type: 'all' });
+      setReports(response.data.reports);
+    } catch (error) {
+      console.error('Failed to fetch reports:', error);
+      notifyError(error, 'Could not load reports');
+    } finally {
+      setReportsLoading(false);
+    }
+  };
+
+  const fetchTopPerformers = async () => {
+    try {
+      const response = await axios.get('/api/analytics/top-performers');
+      setTopPerformers(response.data.top_performers);
+    } catch (error) {
+      console.error('Failed to fetch top performers:', error);
+      notifyError(error, 'Could not load top performers');
+    }
+  };
+
+  const exportToCSV = (data, filename) => {
+    const csv = [];
+    const headers = Object.keys(data[0] || {});
+    csv.push(headers.join(','));
+
+    data.forEach(row => {
+      const values = headers.map(header => {
+        const value = row[header];
+        return typeof value === 'string' ? `"${value}"` : value;
+      });
+      csv.push(values.join(','));
+    });
+
+    const csvString = csv.join('\n');
+    const blob = new Blob([csvString], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(url);
+    toast.success('CSV exported successfully');
+  };
+
+  const exportToPDF = async (elementId, filename) => {
+    const element = document.getElementById(elementId);
+    if (!element) return;
+
+    try {
+      const canvas = await html2canvas(element, { scale: 2 });
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      pdf.save(filename);
+      toast.success('PDF exported successfully');
+    } catch (error) {
+      console.error('Failed to export PDF:', error);
+      notifyError(error, 'Could not export PDF');
     }
   };
 
@@ -284,11 +361,14 @@ const AdminDashboard = () => {
     try {
       const response = await axios.post('/api/analytics/generate-nudges');
       const { nudges_created, high_demand_modules } = response.data;
-      
+
+      // Also generate reports
+      await fetchReports();
+
       if (nudges_created === 0 && high_demand_modules === 0) {
-        toast('No nudges generated. Users need to search for mentors first (3+ searches in 7 days without booking).');
+        toast('No nudges generated. Users need to search for mentors first.');
       } else {
-        toast.success(`Generated ${nudges_created} nudges and identified ${high_demand_modules} high-demand modules`);
+        toast.success(`Generated ${nudges_created} nudges, identified ${high_demand_modules} high-demand modules, and updated reports`);
       }
     } catch (error) {
       console.error('Generate nudges error:', error);
@@ -331,7 +411,7 @@ const AdminDashboard = () => {
 
       {/* Tabs */}
       <div className="flex space-x-2 flex-wrap gap-2">
-        {['overview', 'users', 'modules', 'verifications', 'analytics', 'badges'].map(tab => (
+        {['overview', 'users', 'modules', 'verifications', 'analytics', 'badges', 'reports'].map(tab => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -936,6 +1016,277 @@ const AdminDashboard = () => {
               </>
             )}
           </div>
+        </div>
+      )}
+
+      {/* Reports Tab */}
+      {activeTab === 'reports' && (
+        <div className="space-y-6">
+          <div className="card">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center space-x-2">
+                <BarChart3 className="h-5 w-5 text-primary-600" />
+                <h3 className="text-lg font-semibold">System Reports</h3>
+              </div>
+              <button
+                onClick={fetchReports}
+                className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+              >
+                Refresh Reports
+              </button>
+            </div>
+
+            {reportsLoading ? (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto"></div>
+                <p className="text-gray-600 mt-2">Loading reports...</p>
+              </div>
+            ) : reports ? (
+              <div className="space-y-6">
+                {/* Daily Report */}
+                <div id="daily-report" className="border rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="font-semibold text-gray-900">Daily Report</h4>
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={() => exportToCSV([reports.daily], 'daily-report.csv')}
+                        className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 flex items-center space-x-1"
+                      >
+                        <FileDown className="h-4 w-4" />
+                        <span>CSV</span>
+                      </button>
+                      <button
+                        onClick={() => exportToPDF('daily-report', 'daily-report.pdf')}
+                        className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 flex items-center space-x-1"
+                      >
+                        <Download className="h-4 w-4" />
+                        <span>PDF</span>
+                      </button>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="bg-blue-50 p-3 rounded">
+                      <p className="text-sm text-gray-600">Total Logins</p>
+                      <p className="text-2xl font-bold text-blue-900">{reports.daily?.logins?.total || 0}</p>
+                      <p className="text-xs text-gray-500">Success: {reports.daily?.logins?.successful || 0} | Failed: {reports.daily?.logins?.failed || 0}</p>
+                    </div>
+                    <div className="bg-green-50 p-3 rounded">
+                      <p className="text-sm text-gray-600">Sessions</p>
+                      <p className="text-2xl font-bold text-green-900">{reports.daily?.sessions?.total || 0}</p>
+                      <p className="text-xs text-gray-500">Completed: {reports.daily?.sessions?.completed || 0} | Scheduled: {reports.daily?.sessions?.scheduled || 0}</p>
+                    </div>
+                    <div className="bg-purple-50 p-3 rounded">
+                      <p className="text-sm text-gray-600">Activity Events</p>
+                      <p className="text-2xl font-bold text-purple-900">{reports.daily?.activity?.total_events || 0}</p>
+                      <p className="text-xs text-gray-500">Active Users: {reports.daily?.activity?.active_users || 0}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Weekly Report */}
+                <div id="weekly-report" className="border rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="font-semibold text-gray-900">Weekly Report</h4>
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={() => exportToCSV([reports.weekly], 'weekly-report.csv')}
+                        className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 flex items-center space-x-1"
+                      >
+                        <FileDown className="h-4 w-4" />
+                        <span>CSV</span>
+                      </button>
+                      <button
+                        onClick={() => exportToPDF('weekly-report', 'weekly-report.pdf')}
+                        className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 flex items-center space-x-1"
+                      >
+                        <Download className="h-4 w-4" />
+                        <span>PDF</span>
+                      </button>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="bg-blue-50 p-3 rounded">
+                      <p className="text-sm text-gray-600">Total Logins</p>
+                      <p className="text-2xl font-bold text-blue-900">{reports.weekly?.logins?.total || 0}</p>
+                      <p className="text-xs text-gray-500">Success: {reports.weekly?.logins?.successful || 0} | Failed: {reports.weekly?.logins?.failed || 0}</p>
+                    </div>
+                    <div className="bg-green-50 p-3 rounded">
+                      <p className="text-sm text-gray-600">Sessions</p>
+                      <p className="text-2xl font-bold text-green-900">{reports.weekly?.sessions?.total || 0}</p>
+                      <p className="text-xs text-gray-500">Completed: {reports.weekly?.sessions?.completed || 0} | Scheduled: {reports.weekly?.sessions?.scheduled || 0}</p>
+                    </div>
+                    <div className="bg-purple-50 p-3 rounded">
+                      <p className="text-sm text-gray-600">Activity Events</p>
+                      <p className="text-2xl font-bold text-purple-900">{reports.weekly?.activity?.total_events || 0}</p>
+                      <p className="text-xs text-gray-500">Active Users: {reports.weekly?.activity?.active_users || 0}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Monthly Report */}
+                <div id="monthly-report" className="border rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="font-semibold text-gray-900">Monthly Report</h4>
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={() => exportToCSV([reports.monthly], 'monthly-report.csv')}
+                        className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 flex items-center space-x-1"
+                      >
+                        <FileDown className="h-4 w-4" />
+                        <span>CSV</span>
+                      </button>
+                      <button
+                        onClick={() => exportToPDF('monthly-report', 'monthly-report.pdf')}
+                        className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 flex items-center space-x-1"
+                      >
+                        <Download className="h-4 w-4" />
+                        <span>PDF</span>
+                      </button>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="bg-blue-50 p-3 rounded">
+                      <p className="text-sm text-gray-600">Total Logins</p>
+                      <p className="text-2xl font-bold text-blue-900">{reports.monthly?.logins?.total || 0}</p>
+                      <p className="text-xs text-gray-500">Success: {reports.monthly?.logins?.successful || 0} | Failed: {reports.monthly?.logins?.failed || 0}</p>
+                    </div>
+                    <div className="bg-green-50 p-3 rounded">
+                      <p className="text-sm text-gray-600">Sessions</p>
+                      <p className="text-2xl font-bold text-green-900">{reports.monthly?.sessions?.total || 0}</p>
+                      <p className="text-xs text-gray-500">Completed: {reports.monthly?.sessions?.completed || 0} | Scheduled: {reports.monthly?.sessions?.scheduled || 0}</p>
+                    </div>
+                    <div className="bg-purple-50 p-3 rounded">
+                      <p className="text-sm text-gray-600">Activity Events</p>
+                      <p className="text-2xl font-bold text-purple-900">{reports.monthly?.activity?.total_events || 0}</p>
+                      <p className="text-xs text-gray-500">Active Users: {reports.monthly?.activity?.active_users || 0}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <p className="text-gray-600 text-center py-8">No reports available. Click "Generate Nudges" to generate reports.</p>
+            )}
+          </div>
+
+          {/* Top Performers */}
+          {topPerformers && (
+            <div className="card">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center space-x-2">
+                  <Trophy className="h-5 w-5 text-yellow-600" />
+                  <h3 className="text-lg font-semibold">Top Performers</h3>
+                </div>
+              </div>
+
+              <div className="space-y-6">
+                {/* Top Mentors */}
+                <div>
+                  <h4 className="font-semibold text-gray-900 mb-3">Top Mentors</h4>
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b">
+                          <th className="text-left py-2 px-3">Name</th>
+                          <th className="text-left py-2 px-3">Email</th>
+                          <th className="text-center py-2 px-3">Sessions Completed</th>
+                          <th className="text-center py-2 px-3">Avg Rating</th>
+                          <th className="text-center py-2 px-3">Activity Score</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {topPerformers.mentors?.map(mentor => (
+                          <tr key={mentor.id} className="border-b">
+                            <td className="py-2 px-3">{mentor.first_name} {mentor.last_name}</td>
+                            <td className="py-2 px-3">{mentor.email}</td>
+                            <td className="text-center py-2 px-3">{mentor.sessions_completed || 0}</td>
+                            <td className="text-center py-2 px-3">{mentor.avg_rating?.toFixed(1) || 'N/A'}</td>
+                            <td className="text-center py-2 px-3">{mentor.activity_score || 0}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <button
+                    onClick={() => exportToCSV(topPerformers.mentors || [], 'top-mentors.csv')}
+                    className="mt-3 px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 flex items-center space-x-1"
+                  >
+                    <FileDown className="h-4 w-4" />
+                    <span>Export Mentors CSV</span>
+                  </button>
+                </div>
+
+                {/* Top Mentees */}
+                <div>
+                  <h4 className="font-semibold text-gray-900 mb-3">Top Mentees</h4>
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b">
+                          <th className="text-left py-2 px-3">Name</th>
+                          <th className="text-left py-2 px-3">Email</th>
+                          <th className="text-center py-2 px-3">Sessions Booked</th>
+                          <th className="text-center py-2 px-3">Activity Score</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {topPerformers.mentees?.map(mentee => (
+                          <tr key={mentee.id} className="border-b">
+                            <td className="py-2 px-3">{mentee.first_name} {mentee.last_name}</td>
+                            <td className="py-2 px-3">{mentee.email}</td>
+                            <td className="text-center py-2 px-3">{mentee.sessions_booked || 0}</td>
+                            <td className="text-center py-2 px-3">{mentee.activity_score || 0}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <button
+                    onClick={() => exportToCSV(topPerformers.mentees || [], 'top-mentees.csv')}
+                    className="mt-3 px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 flex items-center space-x-1"
+                  >
+                    <FileDown className="h-4 w-4" />
+                    <span>Export Mentees CSV</span>
+                  </button>
+                </div>
+
+                {/* Top Students */}
+                <div>
+                  <h4 className="font-semibold text-gray-900 mb-3">Top Students (by Activity Score)</h4>
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b">
+                          <th className="text-left py-2 px-3">Name</th>
+                          <th className="text-left py-2 px-3">Email</th>
+                          <th className="text-left py-2 px-3">Type</th>
+                          <th className="text-center py-2 px-3">Activity Score</th>
+                          <th className="text-center py-2 px-3">Total Activities</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {topPerformers.students?.map(student => (
+                          <tr key={student.id} className="border-b">
+                            <td className="py-2 px-3">{student.first_name} {student.last_name}</td>
+                            <td className="py-2 px-3">{student.email}</td>
+                            <td className="py-2 px-3 capitalize">{student.user_type}</td>
+                            <td className="text-center py-2 px-3">{student.activity_score || 0}</td>
+                            <td className="text-center py-2 px-3">{student.total_activities || 0}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <button
+                    onClick={() => exportToCSV(topPerformers.students || [], 'top-students.csv')}
+                    className="mt-3 px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 flex items-center space-x-1"
+                  >
+                    <FileDown className="h-4 w-4" />
+                    <span>Export Students CSV</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

@@ -186,6 +186,12 @@ router.post('/login', [
     );
 
     if (result.rows.length === 0) {
+      // Track failed login attempt - user not found
+      await pool.query(
+        `INSERT INTO login_attempts (email, success, failure_reason, ip_address, user_agent)
+         VALUES ($1, false, 'user_not_found', $2, $3)`,
+        [normalizedEmail, req.ip, req.get('user-agent')]
+      );
       return res.status(401).json({ success: false, error: 'Invalid credentials' });
     }
 
@@ -194,9 +200,15 @@ router.post('/login', [
     // Check if account is locked
     if (user.locked_until && new Date(user.locked_until) > new Date()) {
       const remainingTime = Math.ceil((new Date(user.locked_until) - new Date()) / 60000);
-      return res.status(423).json({ 
-        success: false, 
-        error: `Account is locked. Please try again in ${remainingTime} minutes.` 
+      // Track failed login attempt - account locked
+      await pool.query(
+        `INSERT INTO login_attempts (user_id, email, success, failure_reason, ip_address, user_agent)
+         VALUES ($1, $2, false, 'account_locked', $3, $4)`,
+        [user.id, normalizedEmail, req.ip, req.get('user-agent')]
+      );
+      return res.status(423).json({
+        success: false,
+        error: `Account is locked. Please try again in ${remainingTime} minutes.`
       });
     }
 
@@ -206,7 +218,14 @@ router.post('/login', [
     if (!isMatch) {
       // Increment failed login attempts
       const failedAttempts = (user.failed_login_attempts || 0) + 1;
-      
+
+      // Track failed login attempt - invalid password
+      await pool.query(
+        `INSERT INTO login_attempts (user_id, email, success, failure_reason, ip_address, user_agent)
+         VALUES ($1, $2, false, 'invalid_password', $3, $4)`,
+        [user.id, normalizedEmail, req.ip, req.get('user-agent')]
+      );
+
       if (failedAttempts >= 5) {
         // Lock account for 30 minutes
         const lockedUntil = new Date(Date.now() + 30 * 60 * 1000);
@@ -214,27 +233,27 @@ router.post('/login', [
           'UPDATE users SET failed_login_attempts = $1, locked_until = $2 WHERE id = $3',
           [failedAttempts, lockedUntil, user.id]
         );
-        return res.status(423).json({ 
-          success: false, 
-          error: 'Too many failed login attempts. Account locked for 30 minutes.' 
+        return res.status(423).json({
+          success: false,
+          error: 'Too many failed login attempts. Account locked for 30 minutes.'
         });
       }
-      
+
       await pool.query(
         'UPDATE users SET failed_login_attempts = $1 WHERE id = $2',
         [failedAttempts, user.id]
       );
-      
+
       const remainingAttempts = 5 - failedAttempts;
-      return res.status(401).json({ 
-        success: false, 
-        error: `Invalid credentials. ${remainingAttempts} attempts remaining before account lockout.` 
+      return res.status(401).json({
+        success: false,
+        error: `Invalid credentials. ${remainingAttempts} attempts remaining before account lockout.`
       });
     }
 
     // Reset failed login attempts on successful login
     await pool.query(
-      'UPDATE users SET failed_login_attempts = 0, locked_until = NULL WHERE id = $1',
+      'UPDATE users SET failed_login_attempts = 0, locked_until = NULL, activity_score = activity_score + 1 WHERE id = $1',
       [user.id]
     );
 
@@ -261,6 +280,13 @@ router.post('/login', [
     await pool.query(
       'UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = $1',
       [user.id]
+    );
+
+    // Track successful login attempt
+    await pool.query(
+      `INSERT INTO login_attempts (user_id, email, success, ip_address, user_agent)
+       VALUES ($1, $2, true, $3, $4)`,
+      [user.id, normalizedEmail, req.ip, req.get('user-agent')]
     );
 
     // Create token with shorter expiration for security

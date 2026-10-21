@@ -17,6 +17,8 @@ const Dashboard = () => {
   const [recentSessions, setRecentSessions] = useState([]);
   const [nudges, setNudges] = useState([]);
   const [verificationStatus, setVerificationStatus] = useState(null);
+  const [availableMentors, setAvailableMentors] = useState(null);
+  const [selectedNudgeId, setSelectedNudgeId] = useState(null);
   const [uploadingTranscript, setUploadingTranscript] = useState(false);
   const [loading, setLoading] = useState(true);
   const [userBadges, setUserBadges] = useState([]);
@@ -95,6 +97,27 @@ const Dashboard = () => {
     } catch (error) {
       notifyError(error, 'Could not dismiss the recommendation');
     }
+  };
+
+  const handleNudgeAction = async (nudgeId, action) => {
+    try {
+      const response = await axios.post(`/api/analytics/nudges/${nudgeId}/action`, { action });
+
+      if (action === 'connect') {
+        setAvailableMentors(response.data.mentors);
+        setSelectedNudgeId(nudgeId);
+        toast.success('Showing available mentors');
+      } else {
+        setNudges(nudges.filter(n => n.id !== nudgeId));
+        toast.success('Nudge declined');
+      }
+    } catch (error) {
+      notifyError(error, 'Could not process the action');
+    }
+  };
+
+  const handleBookSession = (mentorId) => {
+    navigate('/sessions', { state: { mentorId } });
   };
 
   const handleViewCertificate = async () => {
@@ -214,14 +237,63 @@ const Dashboard = () => {
                   <p className="text-sm text-gray-700">{nudge.message}</p>
                   <p className="text-xs text-gray-500 mt-1">{nudge.module_code}</p>
                 </div>
-                <button
-                  onClick={() => dismissNudge(nudge.id)}
-                  className="text-gray-400 hover:text-gray-600 ml-4"
-                >
-                  ×
-                </button>
+                <div className="flex items-center space-x-2 ml-4">
+                  <button
+                    onClick={() => handleNudgeAction(nudge.id, 'connect')}
+                    className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+                  >
+                    Connect
+                  </button>
+                  <button
+                    onClick={() => handleNudgeAction(nudge.id, 'decline')}
+                    className="px-3 py-1 bg-gray-200 text-gray-700 text-sm rounded hover:bg-gray-300"
+                  >
+                    Decline
+                  </button>
+                </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Available Mentors Modal */}
+      {availableMentors && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-bold text-gray-900">Available Mentors</h3>
+              <button
+                onClick={() => {
+                  setAvailableMentors(null);
+                  setSelectedNudgeId(null);
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                ×
+              </button>
+            </div>
+            <div className="space-y-3">
+              {availableMentors.map(mentor => (
+                <div key={mentor.id} className="border rounded-lg p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-semibold text-gray-900">{mentor.first_name} {mentor.last_name}</p>
+                      <p className="text-sm text-gray-600">Grade: {mentor.grade} | Reputation: {mentor.reputation_score}</p>
+                    </div>
+                    <button
+                      onClick={() => handleBookSession(mentor.id)}
+                      className="px-4 py-2 bg-primary-600 text-white rounded hover:bg-primary-700"
+                    >
+                      Book Session
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {availableMentors.length === 0 && (
+              <p className="text-gray-600 text-center py-4">No mentors available for this module at the moment.</p>
+            )}
           </div>
         </div>
       )}
