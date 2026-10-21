@@ -86,6 +86,7 @@ const limiter = rateLimit({
   max: process.env.NODE_ENV === 'production' ? 100 : 300, // development has several API calls per page
   standardHeaders: true,
   legacyHeaders: false,
+  skipFailedRequests: true,
   message: {
     success: false,
     error: 'Too many requests. Please wait a few minutes and try again.'

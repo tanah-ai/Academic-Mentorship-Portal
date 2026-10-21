@@ -366,7 +366,7 @@ const AdminDashboard = () => {
       await fetchReports();
 
       if (nudges_created === 0 && high_demand_modules === 0) {
-        toast('No nudges generated. Users need to search for mentors first.');
+        toast('No nudges generated. Nudges are sent 5-10 minutes after a single search without booking, or immediately after 3 searches without booking.');
       } else {
         toast.success(`Generated ${nudges_created} nudges, identified ${high_demand_modules} high-demand modules, and updated reports`);
       }
