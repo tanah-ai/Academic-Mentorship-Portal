@@ -177,12 +177,10 @@ const Login = () => {
                 Your account has been locked due to multiple failed login attempts.
               </p>
               <div className="space-y-2">
-                <button
-                  onClick={() => window.location.href = 'mailto:tanahchinoz@gmail.com?subject=Account Unlock Request&body=My account has been locked. Please help me unlock it.'}
-                  className="w-full btn-primary text-sm"
-                >
-                  Contact Admin to Unlock Account
-                </button>
+                <div className="bg-white p-3 rounded border border-red-200">
+                  <p className="text-xs text-gray-600 mb-1">Contact the administrator at:</p>
+                  <p className="text-sm font-medium text-gray-900">r234157m@students.msu.ac.zw</p>
+                </div>
                 <p className="text-xs text-red-600 text-center">
                   Or wait 30 minutes for automatic unlock
                 </p>
