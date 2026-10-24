@@ -178,7 +178,7 @@ const Login = () => {
               </p>
               <div className="space-y-2">
                 <button
-                  onClick={() => window.location.href = 'mailto:admin@msu.ac.mw?subject=Account Unlock Request&body=My account has been locked. Please help me unlock it.'}
+                  onClick={() => window.location.href = 'mailto:tanahchinoz@gmail.com?subject=Account Unlock Request&body=My account has been locked. Please help me unlock it.'}
                   className="w-full btn-primary text-sm"
                 >
                   Contact Admin to Unlock Account
