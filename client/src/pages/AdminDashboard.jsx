@@ -154,6 +154,21 @@ const AdminDashboard = () => {
     }
   };
 
+  const handleUnlockAccount = async (userId, userName) => {
+    if (!window.confirm(`Are you sure you want to unlock ${userName}'s account?`)) {
+      return;
+    }
+
+    try {
+      await axios.post('/api/auth/unlock-account', { userId });
+      toast.success(`Account unlocked for ${userName}`);
+      fetchUsers(); // Refresh the users list
+    } catch (error) {
+      console.error('Unlock account error:', error);
+      notifyError(error, 'Could not unlock account');
+    }
+  };
+
   const exportToCSV = (data, filename) => {
     const csv = [];
     const headers = Object.keys(data[0] || {});
@@ -575,6 +590,7 @@ const AdminDashboard = () => {
                     <th className="px-4 py-2">Faculty</th>
                     <th className="px-4 py-2">Campus</th>
                     <th className="px-4 py-2">Verified</th>
+                    <th className="px-4 py-2">Status</th>
                     <th className="px-4 py-2">Registered</th>
                     <th className="px-4 py-2">Actions</th>
                   </tr>
@@ -603,17 +619,39 @@ const AdminDashboard = () => {
                           <XCircle className="h-4 w-4 text-gray-300" />
                         )}
                       </td>
+                      <td className="px-4 py-2">
+                        {u.locked_until && new Date(u.locked_until) > new Date() ? (
+                          <span className="px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700">
+                            Locked
+                          </span>
+                        ) : (
+                          <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                            Active
+                          </span>
+                        )}
+                      </td>
                       <td className="px-4 py-2 text-gray-600">
                         {new Date(u.created_at).toLocaleDateString()}
                       </td>
                       <td className="px-4 py-2">
-                        <button
-                          onClick={() => handleDeleteUser(u.id, `${u.first_name} ${u.last_name}`)}
-                          className="text-red-600 hover:text-red-700 p-1"
-                          title="Delete user"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
+                        <div className="flex items-center space-x-2">
+                          {u.locked_until && new Date(u.locked_until) > new Date() && (
+                            <button
+                              onClick={() => handleUnlockAccount(u.id, `${u.first_name} ${u.last_name}`)}
+                              className="text-blue-600 hover:text-blue-700 p-1"
+                              title="Unlock account"
+                            >
+                              <CheckCircle className="h-4 w-4" />
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleDeleteUser(u.id, `${u.first_name} ${u.last_name}`)}
+                            className="text-red-600 hover:text-red-700 p-1"
+                            title="Delete user"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}

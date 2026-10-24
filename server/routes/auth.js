@@ -542,4 +542,31 @@ router.post('/reset-password', [
   }
 });
 
+// @route   POST /api/auth/unlock-account
+// @desc    Admin unlock a user account
+// @access  Admin
+router.post('/unlock-account', [
+  body('userId').notEmpty().withMessage('User ID is required')
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ success: false, errors: errors.array() });
+  }
+
+  const { userId } = req.body;
+
+  try {
+    // Reset failed login attempts and clear lockout
+    await pool.query(
+      'UPDATE users SET failed_login_attempts = 0, locked_until = NULL WHERE id = $1',
+      [userId]
+    );
+
+    res.json({ success: true, message: 'Account unlocked successfully' });
+  } catch (error) {
+    console.error('Unlock account error:', error);
+    res.status(500).json({ success: false, error: 'Server error' });
+  }
+});
+
 module.exports = router;

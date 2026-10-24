@@ -14,6 +14,8 @@ const Login = () => {
   });
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [isAccountLocked, setIsAccountLocked] = useState(false);
+  const [lockoutMessage, setLockoutMessage] = useState('');
   const { login } = useAuth();
   const navigate = useNavigate();
 
@@ -27,10 +29,12 @@ const Login = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
+    setIsAccountLocked(false);
+    setLockoutMessage('');
 
     try {
       const user = await login(formData.email, formData.password, formData.role);
-      
+
       // Frontend validation - check if selected role matches actual user type
       if (formData.role === 'admin' && user.user_type !== 'admin') {
         toast.error('Access denied. You are not registered as an admin.');
@@ -42,9 +46,9 @@ const Login = () => {
         setLoading(false);
         return;
       }
-      
+
       toast.success('Login successful!');
-      
+
       // Redirect based on user_type
       if (user.user_type === 'admin') {
         navigate('/admin');
@@ -52,6 +56,11 @@ const Login = () => {
         navigate('/dashboard');
       }
     } catch (error) {
+      // Check if account is locked
+      if (error.response?.data?.error?.includes('locked') || error.response?.data?.error?.includes('Account is locked')) {
+        setIsAccountLocked(true);
+        setLockoutMessage(error.response.data.error || 'Account is locked');
+      }
       notifyError(error, 'Login failed');
     } finally {
       setLoading(false);
@@ -158,6 +167,28 @@ const Login = () => {
               Forgot your password?
             </Link>
           </div>
+
+          {isAccountLocked && (
+            <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-sm text-red-800 font-medium mb-2">
+                {lockoutMessage}
+              </p>
+              <p className="text-sm text-red-700 mb-3">
+                Your account has been locked due to multiple failed login attempts.
+              </p>
+              <div className="space-y-2">
+                <button
+                  onClick={() => window.location.href = 'mailto:admin@msu.ac.mw?subject=Account Unlock Request&body=My account has been locked. Please help me unlock it.'}
+                  className="w-full btn-primary text-sm"
+                >
+                  Contact Admin to Unlock Account
+                </button>
+                <p className="text-xs text-red-600 text-center">
+                  Or wait 30 minutes for automatic unlock
+                </p>
+              </div>
+            </div>
+          )}
 
           <div className="mt-6 text-center">
             <p className="text-gray-600">
