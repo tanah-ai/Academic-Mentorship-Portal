@@ -177,17 +177,12 @@ const Login = () => {
                 Your account has been locked due to multiple failed login attempts.
               </p>
               <div className="space-y-2">
-                <button
-                  onClick={() => {
-                    const adminDashboardUrl = window.location.origin + '/admin';
-                    const subject = encodeURIComponent('Account Unlock Request');
-                    const body = encodeURIComponent(`My account has been locked. Please help me unlock it.\n\nAdmin Dashboard: ${adminDashboardUrl}`);
-                    window.location.href = `mailto:tanahchinoz@gmail.com?subject=${subject}&body=${body}`;
-                  }}
-                  className="w-full btn-primary text-sm"
+                <a
+                  href={`mailto:tanahchinoz@gmail.com?subject=${encodeURIComponent('Account Unlock Request')}&body=${encodeURIComponent(`My account has been locked. Please help me unlock it.\n\nAdmin Dashboard: ${window.location.origin}/admin`)}`}
+                  className="w-full btn-primary text-sm block text-center"
                 >
                   Contact Admin to Unlock Account
-                </button>
+                </a>
                 <p className="text-xs text-red-600 text-center">
                   Or wait 30 minutes for automatic unlock
                 </p>
