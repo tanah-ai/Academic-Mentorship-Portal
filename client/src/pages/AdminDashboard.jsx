@@ -1199,7 +1199,7 @@ const AdminDashboard = () => {
                             <td className="py-2 px-3">{mentor.first_name} {mentor.last_name}</td>
                             <td className="py-2 px-3">{mentor.email}</td>
                             <td className="text-center py-2 px-3">{mentor.sessions_completed || 0}</td>
-                            <td className="text-center py-2 px-3">{mentor.avg_rating?.toFixed(1) || 'N/A'}</td>
+                            <td className="text-center py-2 px-3">{typeof mentor.avg_rating === 'number' ? mentor.avg_rating.toFixed(1) : 'N/A'}</td>
                             <td className="text-center py-2 px-3">{mentor.activity_score || 0}</td>
                           </tr>
                         ))}
