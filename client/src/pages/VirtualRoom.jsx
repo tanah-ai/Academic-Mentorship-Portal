@@ -31,6 +31,8 @@ const VirtualRoom = () => {
   const remoteVideoRef = useRef(null);
   const screenVideoRef = useRef(null);
   const peerConnectionRef = useRef(null);
+  const localStreamRef = useRef(null);
+  const pendingIceCandidatesRef = useRef([]);
   const fabricCanvas = useRef(null);
   const canvasRef = useRef(null);
   const socketRef = useRef(null);
@@ -90,6 +92,62 @@ const VirtualRoom = () => {
     }
   };
 
+  const addLocalTracks = (peerConnection) => {
+    const stream = localStreamRef.current;
+    if (!stream || !peerConnection) return;
+
+    stream.getTracks().forEach((track) => {
+      const alreadyAdded = peerConnection.getSenders().some(
+        (sender) => sender.track?.id === track.id
+      );
+      if (!alreadyAdded) {
+        peerConnection.addTrack(track, stream);
+      }
+    });
+  };
+
+  const createPeerConnection = () => {
+    if (peerConnectionRef.current) return peerConnectionRef.current;
+
+    const peerConnection = new RTCPeerConnection({
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' }
+      ]
+    });
+
+    peerConnectionRef.current = peerConnection;
+    addLocalTracks(peerConnection);
+
+    peerConnection.ontrack = (event) => {
+      const stream = event.streams[0] || new MediaStream([event.track]);
+      if (remoteVideoRef.current) {
+        remoteVideoRef.current.srcObject = stream;
+        remoteVideoRef.current.play().catch((error) => {
+          if (error.name !== 'AbortError') {
+            console.error('Could not play remote video:', error);
+          }
+        });
+      }
+      setRemoteStream(stream);
+    };
+
+    peerConnection.onicecandidate = (event) => {
+      if (event.candidate) {
+        socketRef.current?.emit('ice-candidate', { sessionId: id, candidate: event.candidate });
+      }
+    };
+
+    return peerConnection;
+  };
+
+  const addPendingIceCandidates = async (peerConnection) => {
+    const candidates = pendingIceCandidatesRef.current.splice(0);
+    for (const candidate of candidates) {
+      await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+    }
+  };
+
   const initSocket = () => {
     // Use Render backend URL for WebSocket connection
     // In production, connect to Render backend; in development, use localhost
@@ -108,6 +166,9 @@ const VirtualRoom = () => {
     newSocket.on('connect', () => {
       console.log('Connected to server');
       newSocket.emit('join-session', id);
+      if (user?.user_type === 'mentee') {
+        newSocket.emit('request-offer', { sessionId: id });
+      }
     });
 
     newSocket.on('connect_error', (error) => {
@@ -167,66 +228,16 @@ const VirtualRoom = () => {
     newSocket.on('offer', async (data) => {
       try {
         console.log('Received offer');
-        
-        // Create peer connection if it doesn't exist
-        if (!peerConnectionRef.current) {
-          const pc = new RTCPeerConnection({
-            iceServers: [
-              { urls: 'stun:stun.l.google.com:19302' },
-              { urls: 'stun:stun1.l.google.com:19302' }
-            ]
-          });
-          
-          peerConnectionRef.current = pc;
-          
-          // Handle remote stream
-          pc.ontrack = (event) => {
-            console.log('Received remote track');
-            if (remoteVideoRef.current) {
-              remoteVideoRef.current.srcObject = event.streams[0];
-              setRemoteStream(event.streams[0]);
-              // Play video with error handling
-              remoteVideoRef.current.play().catch(e => {
-                if (e.name !== 'AbortError') {
-                  console.log('Play error:', e);
-                }
-              });
-            }
-          };
-          
-          // Handle ICE candidates
-          pc.onicecandidate = (event) => {
-            if (event.candidate) {
-              console.log('Sending ICE candidate');
-              newSocket.emit('ice-candidate', { sessionId: id, candidate: event.candidate });
-            }
-          };
-          
-          // Add local stream if it exists
-          if (localStream) {
-            localStream.getTracks().forEach(track => {
-              pc.addTrack(track, localStream);
-            });
-          }
-        }
-        
-        const pc = peerConnectionRef.current;
-        
-        // Check if we already have a remote description
-        if (pc.remoteDescription) {
-          console.log('Already have remote description, ignoring duplicate offer');
+        const pc = createPeerConnection();
+        if (pc.remoteDescription?.sdp === data.offer.sdp) {
+          console.log('Ignoring duplicate offer');
           return;
         }
-        
+
         await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
-        
-        // Add local stream to peer connection before creating answer
-        if (localStream) {
-          localStream.getTracks().forEach(track => {
-            pc.addTrack(track, localStream);
-          });
-        }
-        
+        await addPendingIceCandidates(pc);
+        addLocalTracks(pc);
+
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
         newSocket.emit('answer', { sessionId: id, answer });
@@ -241,14 +252,9 @@ const VirtualRoom = () => {
       try {
         console.log('Received answer');
         const pc = peerConnectionRef.current;
-        if (pc) {
-          // Check if we already have a remote description
-          if (pc.remoteDescription) {
-            console.log('Already have remote description, ignoring duplicate answer');
-            return;
-          }
-          
+        if (pc && pc.signalingState === 'have-local-offer') {
           await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
+          await addPendingIceCandidates(pc);
           console.log('Set remote description from answer');
         }
       } catch (error) {
@@ -261,9 +267,11 @@ const VirtualRoom = () => {
       try {
         console.log('Received ICE candidate');
         const pc = peerConnectionRef.current;
-        if (pc && pc.remoteDescription) {
+        if (pc?.remoteDescription) {
           await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
           console.log('Added ICE candidate');
+        } else {
+          pendingIceCandidatesRef.current.push(data.candidate);
         }
       } catch (error) {
         console.error('Error adding ICE candidate:', error);
@@ -277,10 +285,16 @@ const VirtualRoom = () => {
         console.log('Received request-offer');
         // Only mentor should respond to offer requests
         if (user?.user_type === 'mentor' && peerConnectionRef.current) {
-          console.log('Resending offer to mentee');
-          const offer = await peerConnectionRef.current.createOffer();
-          await peerConnectionRef.current.setLocalDescription(offer);
-          newSocket.emit('offer', { sessionId: id, offer });
+          const pc = peerConnectionRef.current;
+          if (pc.signalingState === 'have-local-offer' && pc.localDescription) {
+            console.log('Resending pending offer to mentee');
+            newSocket.emit('offer', { sessionId: id, offer: pc.localDescription });
+          } else if (pc.signalingState === 'stable') {
+            console.log('Renegotiating video with mentee');
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+            newSocket.emit('offer', { sessionId: id, offer });
+          }
         }
       } catch (error) {
         console.error('Error handling request-offer:', error);
@@ -303,6 +317,7 @@ const VirtualRoom = () => {
         video: true,
         audio: true
       });
+      localStreamRef.current = stream;
       setLocalStream(stream);
       if (localVideoRef.current) {
         localVideoRef.current.srcObject = stream;
@@ -310,46 +325,9 @@ const VirtualRoom = () => {
       setIsVideoOn(true);
       setIsMicOn(true);
       
-      // Only mentor creates peer connection and sends offer
-      // Mentee waits for offer before creating peer connection
       if (user?.user_type === 'mentor' && !peerConnectionRef.current) {
         console.log('Creating peer connection for mentor');
-        const pc = new RTCPeerConnection({
-          iceServers: [
-            { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:stun1.l.google.com:19302' }
-          ]
-        });
-        
-        peerConnectionRef.current = pc;
-        
-        // Add local stream to peer connection
-        stream.getTracks().forEach(track => {
-          pc.addTrack(track, stream);
-        });
-        
-        // Handle remote stream
-        pc.ontrack = (event) => {
-          console.log('Mentor received remote track');
-          if (remoteVideoRef.current) {
-            remoteVideoRef.current.srcObject = event.streams[0];
-            setRemoteStream(event.streams[0]);
-            remoteVideoRef.current.play().catch(e => {
-              if (e.name !== 'AbortError') {
-                console.log('Play error:', e);
-              }
-            });
-          }
-        };
-        
-        // Handle ICE candidates
-        pc.onicecandidate = (event) => {
-          if (event.candidate && socketRef.current) {
-            console.log('Mentor sending ICE candidate');
-            socketRef.current.emit('ice-candidate', { sessionId: id, candidate: event.candidate });
-          }
-        };
-        
+        const pc = createPeerConnection();
         // Create and send offer
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
@@ -357,7 +335,7 @@ const VirtualRoom = () => {
         console.log('Mentor sent offer');
       } else if (user?.user_type === 'mentee') {
         console.log('Mentee started video, requesting offer from mentor');
-        // Request mentor to send offer
+        addLocalTracks(peerConnectionRef.current);
         if (socketRef.current) {
           socketRef.current.emit('request-offer', { sessionId: id });
         }
@@ -373,6 +351,7 @@ const VirtualRoom = () => {
     if (localStream) {
       localStream.getTracks().forEach(track => track.stop());
       setLocalStream(null);
+      localStreamRef.current = null;
     }
     if (peerConnectionRef.current) {
       peerConnectionRef.current.close();
