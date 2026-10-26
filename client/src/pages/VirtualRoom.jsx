@@ -120,6 +120,7 @@ const VirtualRoom = () => {
     addLocalTracks(peerConnection);
 
     peerConnection.ontrack = (event) => {
+      console.log('Received remote track:', event.track.kind);
       const stream = event.streams[0] || new MediaStream([event.track]);
       if (remoteVideoRef.current) {
         remoteVideoRef.current.srcObject = stream;
@@ -227,9 +228,11 @@ const VirtualRoom = () => {
     // WebRTC signaling
     newSocket.on('offer', async (data) => {
       try {
-        console.log('Received offer');
+        console.log('Received offer from mentor');
         const pc = createPeerConnection();
-        if (pc.remoteDescription?.sdp === data.offer.sdp) {
+
+        // Check if we already have a remote description
+        if (pc.remoteDescription && pc.remoteDescription.sdp === data.offer.sdp) {
           console.log('Ignoring duplicate offer');
           return;
         }
@@ -241,7 +244,7 @@ const VirtualRoom = () => {
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
         newSocket.emit('answer', { sessionId: id, answer });
-        console.log('Sent answer');
+        console.log('Sent answer to mentor');
       } catch (error) {
         console.error('Error handling offer:', error);
         notifyError(error, 'Could not establish the video connection');
@@ -250,7 +253,7 @@ const VirtualRoom = () => {
 
     newSocket.on('answer', async (data) => {
       try {
-        console.log('Received answer');
+        console.log('Received answer from mentee');
         const pc = peerConnectionRef.current;
         if (pc && pc.signalingState === 'have-local-offer') {
           await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
@@ -307,40 +310,52 @@ const VirtualRoom = () => {
   const startVideo = async () => {
     try {
       console.log('Starting video for:', user?.user_type);
-      
+
       // Check if mediaDevices is available
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         throw new Error('Camera and microphone access is not available. This may be due to browser security restrictions. Please ensure you are using HTTPS or localhost.');
       }
-      
+
       const stream = await navigator.mediaDevices.getUserMedia({
         video: true,
         audio: true
       });
       localStreamRef.current = stream;
       setLocalStream(stream);
+
+      // Set local video stream
       if (localVideoRef.current) {
         localVideoRef.current.srcObject = stream;
+        localVideoRef.current.play().catch(err => console.error('Error playing local video:', err));
       }
+
       setIsVideoOn(true);
       setIsMicOn(true);
-      
-      if (user?.user_type === 'mentor' && !peerConnectionRef.current) {
-        console.log('Creating peer connection for mentor');
+
+      // Create peer connection if not exists
+      if (!peerConnectionRef.current) {
         const pc = createPeerConnection();
-        // Create and send offer
-        const offer = await pc.createOffer();
-        await pc.setLocalDescription(offer);
-        socketRef.current.emit('offer', { sessionId: id, offer });
-        console.log('Mentor sent offer');
+      }
+
+      // Add local tracks to peer connection
+      addLocalTracks(peerConnectionRef.current);
+
+      if (user?.user_type === 'mentor') {
+        console.log('Mentor creating and sending offer');
+        const pc = peerConnectionRef.current;
+        if (pc.signalingState === 'stable') {
+          const offer = await pc.createOffer();
+          await pc.setLocalDescription(offer);
+          socketRef.current.emit('offer', { sessionId: id, offer });
+          console.log('Mentor sent offer');
+        }
       } else if (user?.user_type === 'mentee') {
         console.log('Mentee started video, requesting offer from mentor');
-        addLocalTracks(peerConnectionRef.current);
         if (socketRef.current) {
           socketRef.current.emit('request-offer', { sessionId: id });
         }
       }
-      
+
     } catch (error) {
       console.error('Error accessing media devices:', error);
       notifyError(error, 'Could not access the camera or microphone');
