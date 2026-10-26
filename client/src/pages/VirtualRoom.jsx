@@ -285,18 +285,26 @@ const VirtualRoom = () => {
     // Handle request for offer from mentee
     newSocket.on('request-offer', async (data) => {
       try {
-        console.log('Received request-offer');
+        console.log('Received request-offer from mentee');
         // Only mentor should respond to offer requests
-        if (user?.user_type === 'mentor' && peerConnectionRef.current) {
+        if (user?.user_type === 'mentor') {
+          // If mentor hasn't started video yet, start it first
+          if (!peerConnectionRef.current) {
+            console.log('Mentor starting video to respond to mentee request');
+            await startVideo();
+          }
+
           const pc = peerConnectionRef.current;
-          if (pc.signalingState === 'have-local-offer' && pc.localDescription) {
-            console.log('Resending pending offer to mentee');
-            newSocket.emit('offer', { sessionId: id, offer: pc.localDescription });
-          } else if (pc.signalingState === 'stable') {
-            console.log('Renegotiating video with mentee');
-            const offer = await pc.createOffer();
-            await pc.setLocalDescription(offer);
-            newSocket.emit('offer', { sessionId: id, offer });
+          if (pc) {
+            if (pc.signalingState === 'have-local-offer' && pc.localDescription) {
+              console.log('Resending pending offer to mentee');
+              newSocket.emit('offer', { sessionId: id, offer: pc.localDescription });
+            } else if (pc.signalingState === 'stable') {
+              console.log('Creating new offer for mentee');
+              const offer = await pc.createOffer();
+              await pc.setLocalDescription(offer);
+              newSocket.emit('offer', { sessionId: id, offer });
+            }
           }
         }
       } catch (error) {
@@ -351,6 +359,11 @@ const VirtualRoom = () => {
         }
       } else if (user?.user_type === 'mentee') {
         console.log('Mentee started video, requesting offer from mentor');
+        // Ensure peer connection exists and tracks are added
+        if (!peerConnectionRef.current) {
+          const pc = createPeerConnection();
+        }
+        addLocalTracks(peerConnectionRef.current);
         if (socketRef.current) {
           socketRef.current.emit('request-offer', { sessionId: id });
         }
